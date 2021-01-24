@@ -25,7 +25,6 @@ buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
 score1     .rs 1  ; player 1 score, 0-15
 score2     .rs 1  ; player 2 score, 0-15
 
-
 ;; DECLARE SOME CONSTANTS HERE
 STATETITLE     = $00  ; displaying title screen
 STATEPLAYING   = $01  ; move paddles/ball, check for collisions
@@ -40,9 +39,6 @@ PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
 PADDLE2X       = $F0
 
 ;;;;;;;;;;;;;;;;;;
-
-
-
 
   .bank 0
   .org $C000 
@@ -100,10 +96,6 @@ LoadPalettesLoop:
   BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
                         ; if compare was equal to 32, keep going down
 
-
-  
-
-
 ;;;Set some initial ball stats
   LDA #$01
   STA balldown
@@ -122,13 +114,10 @@ LoadPalettesLoop:
   STA ballspeedx
   STA ballspeedy
 
-
 ;;:Set starting game state
   LDA #STATEPLAYING
   STA gamestate
 
-
-              
   LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   STA $2000
 
@@ -137,8 +126,8 @@ LoadPalettesLoop:
 
 Forever:
   JMP Forever     ;jump back to Forever, infinite loop, waiting for NMI
-  
- 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 NMI:
   LDA #$00
@@ -159,215 +148,196 @@ NMI:
     
   ;;;all graphics updates done by here, run game engine
 
-
   JSR ReadController1  ;;get the current button data for player 1
   JSR ReadController2  ;;get the current button data for player 2
   
-GameEngine:  
-  LDA gamestate
-  CMP #STATETITLE
-  BEQ EngineTitle    ;;game is displaying title screen
+  GameEngine:  
+    LDA gamestate
+    CMP #STATETITLE
+    BEQ EngineTitle    ;;game is displaying title screen
+      
+    LDA gamestate
+    CMP #STATEGAMEOVER
+    BEQ EngineGameOver  ;;game is displaying ending screen
     
-  LDA gamestate
-  CMP #STATEGAMEOVER
-  BEQ EngineGameOver  ;;game is displaying ending screen
+    LDA gamestate
+    CMP #STATEPLAYING
+    BEQ EnginePlaying   ;;game is playing
   
-  LDA gamestate
-  CMP #STATEPLAYING
-  BEQ EnginePlaying   ;;game is playing
-GameEngineDone:  
-  
-  JSR UpdateSprites  ;;set ball/paddle sprites from positions
-
-  RTI             ; return from interrupt
- 
- 
- 
+  GameEngineDone:  
+    JSR UpdateSprites  ;;set ball/paddle sprites from positions
+    RTI             ; return from interrupt
  
 ;;;;;;;;
  
-EngineTitle:
-  ;;if start button pressed
-  ;;  turn screen off
-  ;;  load game screen
-  ;;  set starting paddle/ball position
-  ;;  go to Playing State
-  ;;  turn screen on
-  JMP GameEngineDone
+  EngineTitle:
+    ;;if start button pressed
+    ;;  turn screen off
+    ;;  load game screen
+    ;;  set starting paddle/ball position
+    ;;  go to Playing State
+    ;;  turn screen on
+    JMP GameEngineDone
 
 ;;;;;;;;; 
  
-EngineGameOver:
-  ;;if start button pressed
-  ;;  turn screen off
-  ;;  load title screen
-  ;;  go to Title State
-  ;;  turn screen on 
-  JMP GameEngineDone
+  EngineGameOver:
+    ;;if start button pressed
+    ;;  turn screen off
+    ;;  load title screen
+    ;;  go to Title State
+    ;;  turn screen on 
+    JMP GameEngineDone
  
 ;;;;;;;;;;;
  
-EnginePlaying:
-
-MoveBallRight:
-  LDA ballright
-  BEQ MoveBallRightDone   ;;if ballright=0, skip this section
-
-  LDA ballx
-  CLC
-  ADC ballspeedx        ;;ballx position = ballx + ballspeedx
-  STA ballx
-
-  LDA ballx
-  CMP #RIGHTWALL
-  BCC MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
-  LDA #$00
-  STA ballright
-  LDA #$01
-  STA ballleft         ;;bounce, ball now moving left
-  ;;in real game, give point to player 1, reset ball
-MoveBallRightDone:
-
-
-MoveBallLeft:
-  LDA ballleft
-  BEQ MoveBallLeftDone   ;;if ballleft=0, skip this section
-
-  LDA ballx
-  SEC
-  SBC ballspeedx        ;;ballx position = ballx - ballspeedx
-  STA ballx
-
-  LDA ballx
-  CMP #LEFTWALL
-  BCS MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
-  LDA #$01
-  STA ballright
-  LDA #$00
-  STA ballleft         ;;bounce, ball now moving right
-  ;;in real game, give point to player 2, reset ball
-MoveBallLeftDone:
-
-
-MoveBallUp:
-  LDA ballup
-  BEQ MoveBallUpDone   ;;if ballup=0, skip this section
-
-  LDA bally
-  SEC
-  SBC ballspeedy        ;;bally position = bally - ballspeedy
-  STA bally
-
-  LDA bally
-  CMP #TOPWALL
-  BCS MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
-  LDA #$01
-  STA balldown
-  LDA #$00
-  STA ballup         ;;bounce, ball now moving down
-MoveBallUpDone:
-
-
-MoveBallDown:
-  LDA balldown
-  BEQ MoveBallDownDone   ;;if ballup=0, skip this section
-
-  LDA bally
-  CLC
-  ADC ballspeedy        ;;bally position = bally + ballspeedy
-  STA bally
-
-  LDA bally
-  CMP #BOTTOMWALL
-  BCC MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
-  LDA #$00
-  STA balldown
-  LDA #$01
-  STA ballup         ;;bounce, ball now moving down
-MoveBallDownDone:
-
-MovePaddleUp:
-  ;;if up button pressed
-  ;;  if paddle top > top wall
-  ;;    move paddle top and bottom up
-MovePaddleUpDone:
-
-MovePaddleDown:
-  ;;if down button pressed
-  ;;  if paddle bottom < bottom wall
-  ;;    move paddle top and bottom down
-MovePaddleDownDone:
-  
-CheckPaddleCollision:
-  ;;if ball x < paddle1x
-  ;;  if ball y > paddle y top
-  ;;    if ball y < paddle y bottom
-  ;;      bounce, ball now moving left
-CheckPaddleCollisionDone:
-
-  JMP GameEngineDone
- 
- 
- 
- 
-UpdateSprites:
-  LDA bally  ;;update all ball sprite info
-  STA $0200
-  
-  LDA #$30
-  STA $0201
-  
-  LDA #$00
-  STA $0202
-  
-  LDA ballx
-  STA $0203
-  
-  ;;update paddle sprites
-  RTS
- 
- 
-DrawScore:
-  ;;draw score on screen using background tiles
-  ;;or using many sprites
-  RTS
- 
- 
- 
-ReadController1:
-  LDA #$01
-  STA $4016
-  LDA #$00
-  STA $4016
-  LDX #$08
-ReadController1Loop:
-  LDA $4016
-  LSR A            ; bit0 -> Carry
-  ROL buttons1     ; bit0 <- Carry
-  DEX
-  BNE ReadController1Loop
-  RTS
-  
-ReadController2:
-  LDA #$01
-  STA $4016
-  LDA #$00
-  STA $4016
-  LDX #$08
-ReadController2Loop:
-  LDA $4017
-  LSR A            ; bit0 -> Carry
-  ROL buttons2     ; bit0 <- Carry
-  DEX
-  BNE ReadController2Loop
-  RTS  
-  
-  
+  EnginePlaying:
+    MoveBallRight:
+      LDA ballright
+      BEQ MoveBallRightDone   ;;if ballright=0, skip this section
     
+      LDA ballx
+      CLC
+      ADC ballspeedx        ;;ballx position = ballx + ballspeedx
+      STA ballx
+    
+      LDA ballx
+      CMP #RIGHTWALL
+      BCC MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
+      LDA #$00
+      STA ballright
+      LDA #$01
+      STA ballleft         ;;bounce, ball now moving left
+      ;;in real game, give point to player 1, reset ball
+    MoveBallRightDone:
+  
+    MoveBallLeft:
+      LDA ballleft
+      BEQ MoveBallLeftDone   ;;if ballleft=0, skip this section
+    
+      LDA ballx
+      SEC
+      SBC ballspeedx        ;;ballx position = ballx - ballspeedx
+      STA ballx
+    
+      LDA ballx
+      CMP #LEFTWALL
+      BCS MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
+      LDA #$01
+      STA ballright
+      LDA #$00
+      STA ballleft         ;;bounce, ball now moving right
+      ;;in real game, give point to player 2, reset ball
+    MoveBallLeftDone:
+  
+    MoveBallUp:
+      LDA ballup
+      BEQ MoveBallUpDone   ;;if ballup=0, skip this section
+    
+      LDA bally
+      SEC
+      SBC ballspeedy        ;;bally position = bally - ballspeedy
+      STA bally
+    
+      LDA bally
+      CMP #TOPWALL
+      BCS MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
+      LDA #$01
+      STA balldown
+      LDA #$00
+      STA ballup         ;;bounce, ball now moving down
+    MoveBallUpDone:
+  
+    MoveBallDown:
+      LDA balldown
+      BEQ MoveBallDownDone   ;;if ballup=0, skip this section
+    
+      LDA bally
+      CLC
+      ADC ballspeedy        ;;bally position = bally + ballspeedy
+      STA bally
+    
+      LDA bally
+      CMP #BOTTOMWALL
+      BCC MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
+      LDA #$00
+      STA balldown
+      LDA #$01
+      STA ballup         ;;bounce, ball now moving down
+    MoveBallDownDone:
+  
+    MovePaddleUp:
+      ;;if up button pressed
+      ;;  if paddle top > top wall
+      ;;    move paddle top and bottom up
+    MovePaddleUpDone:
+    
+    MovePaddleDown:
+      ;;if down button pressed
+      ;;  if paddle bottom < bottom wall
+      ;;    move paddle top and bottom down
+    MovePaddleDownDone:
+      
+    CheckPaddleCollision:
+      ;;if ball x < paddle1x
+      ;;  if ball y > paddle y top
+      ;;    if ball y < paddle y bottom
+      ;;      bounce, ball now moving left
+    CheckPaddleCollisionDone:
+      JMP GameEngineDone
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 
+  UpdateSprites:
+    LDA bally  ;;update all ball sprite info
+    STA $0200
+    
+    LDA #$30
+    STA $0201
+    
+    LDA #$00
+    STA $0202
+    
+    LDA ballx
+    STA $0203
+    
+    ;;update paddle sprites
+    RTS
+ 
+  DrawScore:
+    ;;draw score on screen using background tiles
+    ;;or using many sprites
+    RTS
+   
+  ReadController1:
+    LDA #$01
+    STA $4016
+    LDA #$00
+    STA $4016
+    LDX #$08
+  ReadController1Loop:
+    LDA $4016
+    LSR A            ; bit0 -> Carry
+    ROL buttons1     ; bit0 <- Carry
+    DEX
+    BNE ReadController1Loop
+    RTS
+    
+  ReadController2:
+    LDA #$01
+    STA $4016
+    LDA #$00
+    STA $4016
+    LDX #$08
+  ReadController2Loop:
+    LDA $4017
+    LSR A            ; bit0 -> Carry
+    ROL buttons2     ; bit0 <- Carry
+    DEX
+    BNE ReadController2Loop
+    RTS  
         
 ;;;;;;;;;;;;;;  
-  
-  
   
   .bank 1
   .org $E000
@@ -381,8 +351,6 @@ sprites:
   .db $80, $33, $00, $88   ;sprite 1
   .db $88, $34, $00, $80   ;sprite 2
   .db $88, $35, $00, $88   ;sprite 3
-
-
 
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
