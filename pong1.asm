@@ -104,24 +104,6 @@ LoadPalettesLoop:
   BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
                         ; if compare was equal to 32, keep going down
 
-;;;Set some initial ball stats
-  LDA #$01
-  STA balldown
-  STA ballright
-  LDA #$00
-  STA ballup
-  STA ballleft
-  
-  LDA #$50
-  STA bally
-  
-  LDA #$80
-  STA ballx
-  
-  LDA #$02
-  STA ballspeedx
-  STA ballspeedy
-
 ;;:Set starting game state
   LDA #STATETITLE
   ;LDA #STATEPLAYING
@@ -186,11 +168,32 @@ NMI:
     ;;  set starting paddle/ball position
     ;;  go to Playing State
     ;;  turn screen on
+  	LDA #%10000000   ;intensify blues
+  	STA $2001
 
 		CheckStart:
 		  LDA buttons1 ; player 1 - A
 		  AND #START_PRESSED ; erase everything but bit 0
 		  BEQ CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+
+			;;;Set some initial ball stats
+			LDA #$01
+			STA balldown
+			STA ballright
+			LDA #$00
+			STA ballup
+			STA ballleft
+			
+			LDA #$50
+			STA bally
+			
+			LDA #$80
+			STA ballx
+			
+			LDA #$02
+			STA ballspeedx
+			STA ballspeedy
+
 	    LDA #STATEPLAYING
 	    STA gamestate
 		CheckStartDone:
