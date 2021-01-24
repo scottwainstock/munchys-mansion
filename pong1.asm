@@ -38,6 +38,15 @@ LEFTWALL       = $04
 PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
 PADDLE2X       = $F0
 
+A_PRESSED       = $80
+B_PRESSED       = $40
+SEL_PRESSED     = $20
+START_PRESSED   = $10
+UP_PRESSED      = $08
+DOWN_PRESSED    = $04
+LEFT_PRESSED    = $02
+RIGHT_PRESSED   = $01
+
 ;;;;;;;;;;;;;;;;;;
 
   .bank 0
@@ -75,7 +84,6 @@ clrmem:
 vblankwait2:      ; Second wait for vblank, PPU is ready after this
   BIT $2002
   BPL vblankwait2
-
 
 LoadPalettes:
   LDA $2002             ; read PPU status to reset the high/low latch
@@ -115,7 +123,8 @@ LoadPalettesLoop:
   STA ballspeedy
 
 ;;:Set starting game state
-  LDA #STATEPLAYING
+  LDA #STATETITLE
+  ;LDA #STATEPLAYING
   STA gamestate
 
   LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
@@ -177,6 +186,15 @@ NMI:
     ;;  set starting paddle/ball position
     ;;  go to Playing State
     ;;  turn screen on
+
+		CheckStart:
+		  LDA buttons1 ; player 1 - A
+		  AND #START_PRESSED ; erase everything but bit 0
+		  BEQ CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+	    LDA #STATEPLAYING
+	    STA gamestate
+		CheckStartDone:
+    
     JMP GameEngineDone
 
 ;;;;;;;;; 
@@ -291,13 +309,10 @@ NMI:
   UpdateSprites:
     LDA bally  ;;update all ball sprite info
     STA $0200
-    
     LDA #$30
     STA $0201
-    
     LDA #$00
     STA $0202
-    
     LDA ballx
     STA $0203
     
