@@ -24,6 +24,8 @@ buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
 score1     .rs 1  ; player 1 score, 0-15
 score2     .rs 1  ; player 2 score, 0-15
+pointerLo  .rs 1   ; pointer variables are declared in RAM
+pointerHi  .rs 1   ; low byte first, high byte immediately after
 
 ;; DECLARE SOME CONSTANTS HERE
 STATETITLE     = $00  ; displaying title screen
@@ -63,9 +65,7 @@ RESET:
   STX $2001    ; disable rendering
   STX $4010    ; disable DMC IRQs
 
-vblankwait1:       ; First wait for vblank to make sure PPU is ready
-  BIT $2002
-  BPL vblankwait1
+  jsr VBlankWait
 
 clrmem:
   LDA #$00
@@ -80,38 +80,19 @@ clrmem:
   STA $0200, x
   INX
   BNE clrmem
+
+  jsr VBlankWait
+
+  jsr LoadPalettes
    
-vblankwait2:      ; Second wait for vblank, PPU is ready after this
-  BIT $2002
-  BPL vblankwait2
-
-LoadPalettes:
-  LDA $2002             ; read PPU status to reset the high/low latch
-  LDA #$3F
-  STA $2006             ; write the high byte of $3F00 address
-  LDA #$00
-  STA $2006             ; write the low byte of $3F00 address
-  LDX #$00              ; start out at 0
-LoadPalettesLoop:
-  LDA palette, x        ; load data from address (palette + the value in x)
-                          ; 1st time through loop it will load palette+0
-                          ; 2nd time through loop it will load palette+1
-                          ; 3rd time through loop it will load palette+2
-                          ; etc
-  STA $2007             ; write to PPU
-  INX                   ; X = X + 1
-  CPX #$20              ; Compare X to hex $10, decimal 16 - copying 16 bytes = 4 sprites
-  BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
-                        ; if compare was equal to 32, keep going down
-
-;;:Set starting game state
+	;;:Set starting game state
   LDA #STATETITLE
-  ;LDA #STATEPLAYING
   STA gamestate
+
+	jsr LoadBackground
 
   LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   STA $2000
-
   LDA #%00011110   ; enable sprites, enable background, no clipping on left side
   STA $2001
 
@@ -168,8 +149,6 @@ NMI:
     ;;  set starting paddle/ball position
     ;;  go to Playing State
     ;;  turn screen on
-  	LDA #%10000000   ;intensify blues
-  	STA $2001
 
 		CheckStart:
 		  LDA buttons1 ; player 1 - A
@@ -354,11 +333,137 @@ NMI:
     DEX
     BNE ReadController2Loop
     RTS  
+
+;---------------------------;
+;     SUBROUTINES           ;
+;---------------------------;
+VBlankWait:
+  bit $2002
+  bpl VBlankWait
+  rts
+
+LoadPalettes:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$3F
+  STA $2006             ; write the high byte of $3F00 address
+  LDA #$00
+  STA $2006             ; write the low byte of $3F00 address
+  LDX #$00              ; start out at 0
+	LoadPalettesLoop:
+	  LDA palette, x        ; load data from address (palette + the value in x)
+	                          ; 1st time through loop it will load palette+0
+	                          ; 2nd time through loop it will load palette+1
+	                          ; 3rd time through loop it will load palette+2
+	                          ; etc
+	  STA $2007             ; write to PPU
+	  INX                   ; X = X + 1
+	  CPX #$20              ; Compare X to hex $10, decimal 16 - copying 16 bytes = 4 sprites
+	  BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
+	                        ; if compare was equal to 32, keep going down
+  rts
+
+LoadBackground:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$20
+  STA $2006             ; write the high byte of $2000 address
+  LDA #$00
+  STA $2006             ; write the low byte of $2000 address
+
+  LDA #$00
+  STA pointerLo       ; put the low byte of the address of background into pointer
+  LDA #HIGH(background)
+  STA pointerHi       ; put the high byte of the address into pointer
+  
+  LDX #$00            ; start at pointer + 0
+  LDY #$00
+
+	OutsideLoop:
+		InsideLoop:
+  		LDA [pointerLo], y  ; copy one background byte from address in pointer plus Y
+  		STA $2007           ; this runs 256 * 4 times
+  		
+  		INY                 ; inside loop counter
+  		CPY #$00
+  		BNE InsideLoop      ; run the inside loop 256 times before continuing down
+  		
+  		INC pointerHi       ; low byte went 0 to 256, so high byte needs to be changed now
+  		
+  		INX
+  		CPX #$04
+  		BNE OutsideLoop     ; run the outside loop 256 times before continuing down
+	rts
         
 ;;;;;;;;;;;;;;  
   
   .bank 1
   .org $E000
+
+background:
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$0c,$0c,$0c,$24,$15,$24,$24
+	.db $24,$24,$24,$0a,$0a,$24,$24,$24,$1b,$1b,$1b,$24,$14,$24,$14,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$0c,$0c,$24,$24,$24,$15,$24,$24
+	.db $24,$24,$24,$0a,$0a,$24,$24,$24,$1b,$24,$1b,$24,$14,$24,$14,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$0c,$24,$24,$24,$24,$15,$24,$24
+	.db $24,$24,$0a,$0a,$0a,$0a,$24,$24,$1b,$1b,$1b,$24,$14,$14,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$0c,$24,$24,$24,$24,$15,$24,$24
+	.db $24,$24,$0a,$24,$24,$0a,$24,$24,$1b,$1b,$24,$24,$14,$14,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$0c,$0c,$24,$24,$24,$15,$24,$24
+	.db $24,$0a,$0a,$0a,$0a,$0a,$0a,$24,$1b,$24,$1b,$24,$14,$24,$14,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$0c,$0c,$0c,$24,$15,$15,$15
+	.db $24,$0a,$24,$24,$24,$24,$0a,$24,$1b,$24,$1b,$24,$14,$24,$14,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24
+	.db $01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	.db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	.db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+	.db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+
 palette:
   .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
   .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
