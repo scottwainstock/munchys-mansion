@@ -26,6 +26,8 @@ buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
 score1     .rs 1  ; player 1 score, 0-15
 score2     .rs 1  ; player 2 score, 0-15
+score1low  .rs 1  ; player 1 score, 0-15
+score2low  .rs 1  ; player 2 score, 0-15
 pointerLo  .rs 1   ; pointer variables are declared in RAM
 pointerHi  .rs 1   ; low byte first, high byte immediately after
 
@@ -41,6 +43,12 @@ LEFTWALL       = $04
   
 PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
 PADDLE2X       = $F0
+
+SCORE1HIGH     = $20
+SCORE2HIGH     = $20
+
+SCORE1LOW       = $2D
+SCORE2LOW       = $31
 
 A_PRESSED       = $80
 B_PRESSED       = $40
@@ -90,6 +98,10 @@ clrmem:
 	;;:Set starting game state
   LDA #STATETITLE
   STA gamestate
+
+	lda #$0
+	sta score1low
+	sta score2low
 
 	jsr LoadBackground
 
@@ -174,10 +186,21 @@ NMI:
 			STA ballspeedx
 			STA ballspeedy
 
+      ; set initial paddle y stats
 			LDA #$50
 			STA paddle1ytop
 			LDA #$80
 			STA paddle2ytop
+
+      ; setup scores
+      lda #00
+      sta score1
+      sta score2
+
+			lda #SCORE1LOW
+			sta score1low
+			lda #SCORE2LOW
+			sta score2low
 
 			jsr TurnOffScreenAndNMI
 	  	jsr LoadAnotherBackground
@@ -262,7 +285,12 @@ NMI:
       STA ballright
       LDA #$01
       STA ballleft         ;;bounce, ball now moving left
+
       ;;in real game, give point to player 1, reset ball
+			lda score1
+      clc
+      adc #$01
+			sta score1
     MoveBallRightDone:
   
     MoveBallLeft:
@@ -281,7 +309,12 @@ NMI:
       STA ballright
       LDA #$00
       STA ballleft         ;;bounce, ball now moving right
+
       ;;in real game, give point to player 2, reset ball
+			lda score2
+      clc
+      adc #$01
+			sta score2
     MoveBallLeftDone:
   
     MoveBallUp:
@@ -375,8 +408,20 @@ NMI:
     RTS
  
   DrawScore:
-    ;;draw score on screen using background tiles
-    ;;or using many sprites
+		lda #SCORE1HIGH
+		sta $2006
+		lda score1low
+		sta $2006
+  	lda score1
+		sta $2007
+
+		lda #SCORE2HIGH
+		sta $2006
+		lda score2low
+		sta $2006
+  	lda score2
+		sta $2007
+
     RTS
    
   ReadController1:
