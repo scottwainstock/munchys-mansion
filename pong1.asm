@@ -19,6 +19,8 @@ ballright  .rs 1  ; 1 = ball moving right
 ballspeedx .rs 1  ; ball horizontal speed per frame
 ballspeedy .rs 1  ; ball vertical speed per frame
 paddle1ytop   .rs 1  ; player 1 paddle top vertical position
+paddle1ybot   .rs 1  ; player 1 paddle top vertical position
+paddle2ytop   .rs 1  ; player 2 paddle bottom vertical position
 paddle2ybot   .rs 1  ; player 2 paddle bottom vertical position
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
@@ -165,13 +167,17 @@ NMI:
 			
 			LDA #$50
 			STA bally
-			
 			LDA #$80
 			STA ballx
 			
 			LDA #$02
 			STA ballspeedx
 			STA ballspeedy
+
+			LDA #$50
+			STA paddle1ytop
+			LDA #$80
+			STA paddle2ytop
 
 			jsr TurnOffScreenAndNMI
 	  	jsr LoadAnotherBackground
@@ -196,6 +202,50 @@ NMI:
 ;;;;;;;;;;;
  
   EnginePlaying:
+		CheckP1Up:
+		  LDA buttons1
+		  AND #UP_PRESSED
+		  BEQ CheckP1UpDone
+      LDA paddle1ytop
+      SEC             ; make sure carry flag is set
+      SBC #$02        ; A = A - 1
+      STA paddle1ytop ; save new paddley position
+      CheckP1UpDone:
+        ;noop
+
+		CheckP1Down:
+		  LDA buttons1
+		  AND #DOWN_PRESSED
+		  BEQ CheckP1DownDone
+      LDA paddle1ytop
+      CLC             ; make sure the carry flag is clear
+      ADC #$02        ; A = A + 1
+      STA paddle1ytop ; save new paddley position
+      CheckP1DownDone:
+        ;noop
+
+		CheckP2Up:
+		  LDA buttons2
+		  AND #UP_PRESSED
+		  BEQ CheckP2UpDone
+      LDA paddle2ytop
+      SEC             ; make sure carry flag is set
+      SBC #$02        ; A = A - 1
+      STA paddle2ytop ; save new paddley position
+      CheckP2UpDone:
+        ;noop
+
+		CheckP2Down:
+		  LDA buttons2
+		  AND #DOWN_PRESSED
+		  BEQ CheckP2DownDone
+      LDA paddle2ytop
+      CLC             ; make sure the carry flag is clear
+      ADC #$02        ; A = A + 1
+      STA paddle2ytop ; save new paddley position
+      CheckP2DownDone:
+        ;noop
+
     MoveBallRight:
       LDA ballright
       BEQ MoveBallRightDone   ;;if ballright=0, skip this section
@@ -302,7 +352,26 @@ NMI:
     LDA ballx
     STA $0203
     
-    ;;update paddle sprites
+    ; update paddle 1
+    LDA paddle1ytop
+    STA $0204
+    LDA #$85
+    STA $0205
+    LDA #$00
+    STA $0206
+    LDA #PADDLE1X
+    STA $0207
+
+    ; update paddle 2
+    LDA paddle2ytop
+    STA $0208
+    LDA #$85
+    STA $0209
+    LDA #$00
+    STA $020A
+    LDA #PADDLE2X
+    STA $020B
+
     RTS
  
   DrawScore:
