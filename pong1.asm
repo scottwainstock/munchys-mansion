@@ -157,13 +157,6 @@ NMI:
 ;;;;;;;;
  
   EngineTitle:
-    ;;if start button pressed
-    ;;  turn screen off
-    ;;  load game screen
-    ;;  set starting paddle/ball position
-    ;;  go to Playing State
-    ;;  turn screen on
-
 		CheckStart:
 		  LDA buttons1 ; player 1 - A
 		  AND #START_PRESSED ; erase everything but bit 0
@@ -189,8 +182,12 @@ NMI:
       ; set initial paddle y stats
 			LDA #$50
 			STA paddle1ytop
+			LDA #$58
+      STA paddle1ybot
 			LDA #$80
 			STA paddle2ytop
+			LDA #$88
+      STA paddle2ybot
 
       ; setup scores
       lda #00
@@ -233,6 +230,10 @@ NMI:
       SEC             ; make sure carry flag is set
       SBC #$02        ; A = A - 1
       STA paddle1ytop ; save new paddley position
+      LDA paddle1ybot
+      SEC             ; make sure carry flag is set
+      SBC #$02        ; A = A - 1
+      STA paddle1ybot ; save new paddley position
       CheckP1UpDone:
         ;noop
 
@@ -244,6 +245,10 @@ NMI:
       CLC             ; make sure the carry flag is clear
       ADC #$02        ; A = A + 1
       STA paddle1ytop ; save new paddley position
+      LDA paddle1ybot
+      CLC             ; make sure the carry flag is clear
+      ADC #$02        ; A = A + 1
+      STA paddle1ybot ; save new paddley position
       CheckP1DownDone:
         ;noop
 
@@ -255,6 +260,10 @@ NMI:
       SEC             ; make sure carry flag is set
       SBC #$02        ; A = A - 1
       STA paddle2ytop ; save new paddley position
+      LDA paddle2ybot
+      SEC             ; make sure carry flag is set
+      SBC #$02        ; A = A - 1
+      STA paddle2ybot ; save new paddley position
       CheckP2UpDone:
         ;noop
 
@@ -266,6 +275,10 @@ NMI:
       CLC             ; make sure the carry flag is clear
       ADC #$02        ; A = A + 1
       STA paddle2ytop ; save new paddley position
+      LDA paddle2ybot
+      CLC             ; make sure the carry flag is clear
+      ADC #$02        ; A = A + 1
+      STA paddle2ybot ; save new paddley position
       CheckP2DownDone:
         ;noop
 
@@ -353,18 +366,6 @@ NMI:
       STA ballup         ;;bounce, ball now moving down
     MoveBallDownDone:
   
-    MovePaddleUp:
-      ;;if up button pressed
-      ;;  if paddle top > top wall
-      ;;    move paddle top and bottom up
-    MovePaddleUpDone:
-    
-    MovePaddleDown:
-      ;;if down button pressed
-      ;;  if paddle bottom < bottom wall
-      ;;    move paddle top and bottom down
-    MovePaddleDownDone:
-      
     CheckPaddleCollision:
       ;;if ball x < paddle1x
       ;;  if ball y > paddle y top
@@ -395,15 +396,33 @@ NMI:
     LDA #PADDLE1X
     STA $0207
 
-    ; update paddle 2
-    LDA paddle2ytop
+    LDA paddle1ybot
     STA $0208
     LDA #$85
     STA $0209
     LDA #$00
     STA $020A
-    LDA #PADDLE2X
+    LDA #PADDLE1X
     STA $020B
+
+    ; update paddle 2
+    LDA paddle2ytop
+    STA $020C
+    LDA #$85
+    STA $020D
+    LDA #$00
+    STA $020E
+    LDA #PADDLE2X
+    STA $020F
+
+    LDA paddle2ybot
+    STA $0210
+    LDA #$85
+    STA $0211
+    LDA #$00
+    STA $0212
+    LDA #PADDLE2X
+    STA $0213
 
     RTS
  
