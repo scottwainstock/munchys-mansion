@@ -20,8 +20,10 @@ ballspeedx .rs 1  ; ball horizontal speed per frame
 ballspeedy .rs 1  ; ball vertical speed per frame
 paddle1ytop   .rs 1  ; player 1 paddle top vertical position
 paddle1ybot   .rs 1  ; player 1 paddle top vertical position
+paddle1yend   .rs 1  ; player 1 paddle top vertical position
 paddle2ytop   .rs 1  ; player 2 paddle bottom vertical position
 paddle2ybot   .rs 1  ; player 2 paddle bottom vertical position
+paddle2yend   .rs 1  ; player 2 paddle bottom vertical position
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
 score1     .rs 1  ; player 1 score, 0-15
@@ -41,8 +43,10 @@ TOPWALL        = $20
 BOTTOMWALL     = $E0
 LEFTWALL       = $04
   
-PADDLE1X       = $08  ; horizontal position for paddles, doesnt move
-PADDLE2X       = $F0
+PADDLE1X       					= $22  ; horizontal position for paddles, doesnt move
+PADDLE1X_COLLISION_EDGE = $1A
+PADDLE2X                = $D6
+PADDLE2X_COLLISION_EDGE = $CE
 
 SCORE1HIGH     = $20
 SCORE2HIGH     = $20
@@ -234,6 +238,9 @@ NMI:
       SEC             ; make sure carry flag is set
       SBC #$02        ; A = A - 1
       STA paddle1ybot ; save new paddley position
+			SEC
+			SBC #$08
+      STA paddle1yend ; save new paddley end position
       CheckP1UpDone:
         ;noop
 
@@ -249,6 +256,9 @@ NMI:
       CLC             ; make sure the carry flag is clear
       ADC #$02        ; A = A + 1
       STA paddle1ybot ; save new paddley position
+			CLC
+ 		  ADC #$08
+      STA paddle1yend ; save new paddley end position
       CheckP1DownDone:
         ;noop
 
@@ -264,6 +274,9 @@ NMI:
       SEC             ; make sure carry flag is set
       SBC #$02        ; A = A - 1
       STA paddle2ybot ; save new paddley position
+			SEC
+      SBC #$08        ; A = A - 1
+			STA paddle2yend
       CheckP2UpDone:
         ;noop
 
@@ -279,6 +292,9 @@ NMI:
       CLC             ; make sure the carry flag is clear
       ADC #$02        ; A = A + 1
       STA paddle2ybot ; save new paddley position
+			CLC
+			ADC #08
+      STA paddle2yend
       CheckP2DownDone:
         ;noop
 
@@ -367,11 +383,49 @@ NMI:
     MoveBallDownDone:
   
     CheckPaddleCollision:
-      ;;if ball x < paddle1x
-      ;;  if ball y > paddle y top
-      ;;    if ball y < paddle y bottom
-      ;;      bounce, ball now moving left
-    CheckPaddleCollisionDone:
+  		lda ballx
+  		cmp #PADDLE1X_COLLISION_EDGE
+  		bcc CheckPaddle1Collision
+
+  		LDA ballx
+  		CMP #PADDLE2X_COLLISION_EDGE
+  		BCS CheckPaddle2Collision
+
+      JMP CheckPaddleCollisionDone
+
+    CheckPaddle1Collision:
+			LDA bally
+		  CMP paddle1ytop
+		  BCC CheckPaddleCollisionDone
+
+			LDA bally
+		  CMP paddle1yend
+		  BCS CheckPaddleCollisionDone
+
+  		LDA #$00
+  		STA ballleft
+  		LDA #$01
+  		STA ballright                      ;; bounce, ball now moving up
+
+      JMP CheckPaddleCollisionDone
+
+    CheckPaddle2Collision:
+			LDA bally
+		  CMP paddle2ytop
+		  BCC CheckPaddleCollisionDone
+
+			LDA bally
+		  CMP paddle2yend
+		  BCS CheckPaddleCollisionDone
+
+  		LDA #$01
+  		STA ballleft
+  		LDA #$00
+  		STA ballright                      ;; bounce, ball now moving up
+
+      JMP CheckPaddleCollisionDone
+
+		CheckPaddleCollisionDone:
       JMP GameEngineDone
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
