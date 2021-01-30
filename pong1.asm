@@ -26,10 +26,14 @@ paddle2ybot   .rs 1  ; player 2 paddle bottom vertical position
 paddle2yend   .rs 1  ; player 2 paddle bottom vertical position
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
-score1     .rs 1  ; player 1 score, 0-15
-score2     .rs 1  ; player 2 score, 0-15
+score1Ones     .rs 1  ; player 1 score, 0-15
+score1Tens     .rs 1  ; player 1 score, 0-15
+score2Ones     .rs 1  ; player 2 score, 0-15
+score2Tens     .rs 1  ; player 2 score, 0-15
 score1low  .rs 1  ; player 1 score, 0-15
 score2low  .rs 1  ; player 2 score, 0-15
+score110low  .rs 1  ; player 1 score, 0-15
+score210low  .rs 1  ; player 2 score, 0-15
 pointerLo  .rs 1   ; pointer variables are declared in RAM
 pointerHi  .rs 1   ; low byte first, high byte immediately after
 
@@ -48,11 +52,12 @@ PADDLE1X_COLLISION_EDGE = $1A
 PADDLE2X                = $D6
 PADDLE2X_COLLISION_EDGE = $CE
 
-SCORE1HIGH     = $20
-SCORE2HIGH     = $20
+SCOREHIGH     = $20
 
 SCORE1LOW       = $2D
-SCORE2LOW       = $31
+SCORE110LOW     = $2C
+SCORE2LOW       = $32
+SCORE210LOW     = $31
 
 A_PRESSED       = $80
 B_PRESSED       = $40
@@ -104,8 +109,14 @@ clrmem:
   STA gamestate
 
 	lda #$0
+  sta score1Ones
+  sta score1Tens
+  sta score2Ones
+  sta score2Tens
 	sta score1low
+	sta score110low
 	sta score2low
+	sta score210low
 
 	jsr LoadBackground
 
@@ -194,14 +205,21 @@ NMI:
       STA paddle2ybot
 
       ; setup scores
-      lda #00
-      sta score1
-      sta score2
+      lda #0
+      sta score1Ones
+      sta score1Tens
+      sta score2Ones
+      sta score2Tens
 
 			lda #SCORE1LOW
 			sta score1low
 			lda #SCORE2LOW
 			sta score2low
+
+			lda #SCORE110LOW
+			sta score110low
+			lda #SCORE210LOW
+			sta score210low
 
 			jsr TurnOffScreenAndNMI
 	  	jsr LoadAnotherBackground
@@ -216,11 +234,6 @@ NMI:
 ;;;;;;;;; 
  
   EngineGameOver:
-    ;;if start button pressed
-    ;;  turn screen off
-    ;;  load title screen
-    ;;  go to Title State
-    ;;  turn screen on 
     JMP GameEngineDone
  
 ;;;;;;;;;;;
@@ -316,10 +329,8 @@ NMI:
       STA ballleft         ;;bounce, ball now moving left
 
       ;;in real game, give point to player 1, reset ball
-			lda score1
-      clc
-      adc #$01
-			sta score1
+      jsr IncrementScoreOne
+			jsr CheckIfGameIsOver
     MoveBallRightDone:
   
     MoveBallLeft:
@@ -340,10 +351,8 @@ NMI:
       STA ballleft         ;;bounce, ball now moving right
 
       ;;in real game, give point to player 2, reset ball
-			lda score2
-      clc
-      adc #$01
-			sta score2
+      jsr IncrementScoreTwo
+			jsr CheckIfGameIsOver
     MoveBallLeftDone:
   
     MoveBallUp:
@@ -406,6 +415,7 @@ NMI:
   		STA ballleft
   		LDA #$01
   		STA ballright                      ;; bounce, ball now moving up
+			jsr BounceSound
 
       JMP CheckPaddleCollisionDone
 
@@ -422,6 +432,7 @@ NMI:
   		STA ballleft
   		LDA #$00
   		STA ballright                      ;; bounce, ball now moving up
+			jsr BounceSound
 
       JMP CheckPaddleCollisionDone
 
@@ -481,19 +492,27 @@ NMI:
     RTS
  
   DrawScore:
-		lda #SCORE1HIGH
-		sta $2006
-		lda score1low
-		sta $2006
-  	lda score1
-		sta $2007
+    LDA $2002
+    LDA #$20
+    STA $2006
+    LDA #$4C
+    STA $2006          ; start drawing the score at PPU $2020
+    
+    LDA score1Tens      ; next digit
+    STA $2007
+    LDA score1Ones      ; last digit
+    STA $2007
 
-		lda #SCORE2HIGH
-		sta $2006
-		lda score2low
-		sta $2006
-  	lda score2
-		sta $2007
+    LDA $2002
+    LDA #$20
+    STA $2006
+    LDA #$51
+    STA $2006          ; start drawing the score at PPU $2020
+
+    LDA score2Tens      ; next digit
+    STA $2007
+    LDA score2Ones      ; last digit
+    STA $2007
 
     RTS
    
@@ -528,6 +547,73 @@ NMI:
 ;---------------------------;
 ;     SUBROUTINES           ;
 ;---------------------------;
+BounceSound:
+  lda #%00000001
+  sta $4015 ;enable square 1
+
+  lda #%10111111 ;Duty 10, Volume F
+  sta $4000
+
+  lda #$D9    ;0C9 is a C# in NTSC mode
+  sta $4002
+  lda #$00
+  sta $4003
+
+  lda #0
+  sta $4000
+
+	rts
+
+ScoreSound:
+  lda #%00000001
+  sta $4015 ;enable square 1
+
+  lda #%10111111 ;Duty 10, Volume F
+  sta $4000
+
+  lda #$C9    ;0C9 is a C# in NTSC mode
+  sta $4002
+  lda #$00
+  sta $4003
+
+  lda #0
+  sta $4000
+
+	rts
+
+CheckIfGameIsOver:
+  lda score1Tens
+	cmp #$01
+  bne Check1OnesDone
+
+  lda score1Ones
+	cmp #$05
+	beq GameIsOver
+  Check1OnesDone:
+
+  lda score2Tens
+	cmp #$01
+  bne Check2OnesDone
+
+  lda score2Ones
+	cmp #$05
+	beq GameIsOver
+  Check2OnesDone:
+
+	jmp CheckIfGameIsOverDone
+
+	GameIsOver:
+	  jsr TurnOffScreenAndNMI
+	  jsr LoadGameOverBackground
+	  jsr TurnOnScreenAndNMI
+
+		lda #STATEGAMEOVER
+		sta gamestate
+
+		jmp CheckIfGameIsOverDone
+	CheckIfGameIsOverDone:
+	  rts
+
 VBlankWait:
   bit $2002
   bpl VBlankWait
@@ -615,6 +701,79 @@ LoadAnotherBackground:
   		BNE AnotherOutsideLoop     ; run the outside loop 256 times before continuing down
 	rts
 
+LoadGameOverBackground:
+  LDA $2002             ; read PPU status to reset the high/low latch
+  LDA #$20
+  STA $2006             ; write the high byte of $2000 address
+  LDA #$00
+  STA $2006             ; write the low byte of $2000 address
+
+  LDA #$00
+  STA pointerLo       ; put the low byte of the address of background into pointer
+  LDA #HIGH(gameover_background)
+  STA pointerHi       ; put the high byte of the address into pointer
+  
+  LDX #$00            ; start at pointer + 0
+  LDY #$00
+
+	GameOverOutsideLoop:
+		GameOverInsideLoop:
+  		LDA [pointerLo], y  ; copy one background byte from address in pointer plus Y
+  		STA $2007           ; this runs 256 * 4 times
+  		
+  		INY                 ; inside loop counter
+  		CPY #$00
+  		BNE GameOverInsideLoop      ; run the inside loop 256 times before continuing down
+  		
+  		INC pointerHi       ; low byte went 0 to 256, so high byte needs to be changed now
+  		
+  		INX
+  		CPX #$04
+  		BNE GameOverOutsideLoop     ; run the outside loop 256 times before continuing down
+	rts
+
+IncrementScoreOne:
+  Inc1Ones:
+    LDA score1Ones      ; load the lowest digit of the number
+    CLC 
+    ADC #$01           ; add one
+    STA score1Ones
+    CMP #$0A           ; check if it overflowed, now equals 10
+    BNE Inc1Done        ; if there was no overflow, all done
+  Inc1Tens:
+    LDA #$00
+    STA score1Ones      ; wrap digit to 0
+    LDA score1Tens      ; load the next digit
+    CLC 
+    ADC #$01           ; add one, the carry from previous digit
+    STA score1Tens
+    CMP #$0A           ; check if it overflowed, now equals 10
+    BNE Inc1Done        ; if there was no overflow, all done
+  Inc1Done:
+		jsr ScoreSound
+		rts
+
+IncrementScoreTwo:
+  Inc2Ones:
+    LDA score2Ones      ; load the lowest digit of the number
+    CLC 
+    ADC #$01           ; add one
+    STA score2Ones
+    CMP #$0A           ; check if it overflowed, now equals 10
+    BNE Inc2Done        ; if there was no overflow, all done
+  Inc2Tens:
+    LDA #$00
+    STA score2Ones      ; wrap digit to 0
+    LDA score2Tens      ; load the next digit
+    CLC 
+    ADC #$01           ; add one, the carry from previous digit
+    STA score2Tens
+    CMP #$0A           ; check if it overflowed, now equals 10
+    BNE Inc2Done        ; if there was no overflow, all done
+  Inc2Done:
+		jsr ScoreSound
+		rts
+
 TurnOffScreenAndNMI:
 	; turn off screen and NMI
 	lda #$00
@@ -644,6 +803,9 @@ background:
 
 another_background:
   .include "another_background.asm"
+
+gameover_background:
+  .include "gameover_background.asm"
 
 palette:
   .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
