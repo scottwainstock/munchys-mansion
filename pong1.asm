@@ -157,65 +157,21 @@ NMI:
 		  LDA buttons1 ; player 1 - A
 		  AND #START_PRESSED ; erase everything but bit 0
 		  BEQ CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+      jsr InitPlayingState
 
-			;;;Set some initial ball stats
-			LDA #$01
-			STA balldown
-			STA ballright
-			LDA #$00
-			STA ballup
-			STA ballleft
-			
-			LDA #$50
-			STA bally
-			LDA #$80
-			STA ballx
-			
-			LDA #$02
-			STA ballspeedx
-			STA ballspeedy
-
-      ; set initial paddle y stats
-			LDA #$50
-			STA paddle1ytop
-			LDA #$58
-      STA paddle1ybot
-			LDA #$80
-			STA paddle2ytop
-			LDA #$88
-      STA paddle2ybot
-
-      ; setup scores
-      lda #0
-      sta score1Ones
-      sta score1Tens
-      sta score2Ones
-      sta score2Tens
-
-	    lda #$20
-			sta score1High
-			sta score2High
-
-	    lda #$4C
-			sta score1Low
-	    
-	    lda #$51
-			sta score2Low
-
-			jsr TurnOffScreenAndNMI
-	  	jsr LoadAnotherBackground
-			jsr TurnOnScreenAndNMI
-
-	    LDA #STATEPLAYING
-	    STA gamestate
 		CheckStartDone:
-    
-    JMP GameEngineDone
+      JMP GameEngineDone
 
 ;;;;;;;;; 
  
   EngineGameOver:
-    JMP GameEngineDone
+		LDA buttons1 ; player 1 - A
+		AND #START_PRESSED ; erase everything but bit 0
+    BEQ GameOverCheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+    jsr InitPlayingState
+
+    GameOverCheckStartDone:
+      JMP GameEngineDone
  
 ;;;;;;;;;;;
  
@@ -792,6 +748,59 @@ TurnOnScreenAndNMI:
 	sta $2000
 
 	rts
+
+InitPlayingState:
+  ;;;Set some initial ball stats
+  LDA #$01
+  STA balldown
+  STA ballright
+  LDA #$00
+  STA ballup
+  STA ballleft
+  
+  LDA #$50
+  STA bally
+  LDA #$80
+  STA ballx
+  
+  LDA #$02
+  STA ballspeedx
+  STA ballspeedy
+  
+  ; set initial paddle y stats
+  LDA #$50
+  STA paddle1ytop
+  LDA #$58
+  STA paddle1ybot
+  LDA #$80
+  STA paddle2ytop
+  LDA #$88
+  STA paddle2ybot
+  
+  ; setup scores
+  lda #0
+  sta score1Ones
+  sta score1Tens
+  sta score2Ones
+  sta score2Tens
+  
+  lda #$20
+  sta score1High
+  sta score2High
+  
+  lda #$4C
+  sta score1Low
+  
+  lda #$51
+  sta score2Low
+  
+  jsr TurnOffScreenAndNMI
+  jsr LoadAnotherBackground
+  jsr TurnOnScreenAndNMI
+  
+  LDA #STATEPLAYING
+  STA gamestate
+  rts
         
 ;;;;;;;;;;;;;;  
   
