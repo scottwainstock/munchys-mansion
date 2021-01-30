@@ -99,7 +99,7 @@ clrmem:
   LDA #STATETITLE
   STA gamestate
 
-	jsr LoadBackground
+  jsr LoadTitleBackground
 
   LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   STA $2000
@@ -595,7 +595,7 @@ LoadPalettes:
 	                        ; if compare was equal to 32, keep going down
   rts
 
-LoadBackground:
+LoadTitleBackground:
   LDA $2002             ; read PPU status to reset the high/low latch
   LDA #$20
   STA $2006             ; write the high byte of $2000 address
@@ -604,7 +604,7 @@ LoadBackground:
 
   LDA #$00
   STA pointerLo       ; put the low byte of the address of background into pointer
-  LDA #HIGH(background)
+  LDA #HIGH(title_background)
   STA pointerHi       ; put the high byte of the address into pointer
   
   LDX #$00            ; start at pointer + 0
@@ -626,7 +626,7 @@ LoadBackground:
   		BNE OutsideLoop     ; run the outside loop 256 times before continuing down
 	rts
 
-LoadAnotherBackground:
+LoadPlayingBackground:
   LDA $2002             ; read PPU status to reset the high/low latch
   LDA #$20
   STA $2006             ; write the high byte of $2000 address
@@ -635,7 +635,7 @@ LoadAnotherBackground:
 
   LDA #$00
   STA pointerLo       ; put the low byte of the address of background into pointer
-  LDA #HIGH(another_background)
+  LDA #HIGH(playing_background)
   STA pointerHi       ; put the high byte of the address into pointer
   
   LDX #$00            ; start at pointer + 0
@@ -795,7 +795,7 @@ InitPlayingState:
   sta score2Low
   
   jsr TurnOffScreenAndNMI
-  jsr LoadAnotherBackground
+  jsr LoadPlayingBackground
   jsr TurnOnScreenAndNMI
   
   LDA #STATEPLAYING
@@ -807,11 +807,11 @@ InitPlayingState:
   .bank 1
   .org $E000
 
-background:
-  .include "background.asm"
+title_background:
+  .include "title_background.asm"
 
-another_background:
-  .include "another_background.asm"
+playing_background:
+  .include "playing_background.asm"
 
 gameover_background:
   .include "gameover_background.asm"
