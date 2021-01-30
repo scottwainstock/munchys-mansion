@@ -26,14 +26,14 @@ paddle2ybot   .rs 1  ; player 2 paddle bottom vertical position
 paddle2yend   .rs 1  ; player 2 paddle bottom vertical position
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
+score1High     .rs 1  ; player 1 score, 0-15
+score1Low     .rs 1  ; player 1 score, 0-15
 score1Ones     .rs 1  ; player 1 score, 0-15
 score1Tens     .rs 1  ; player 1 score, 0-15
+score2High     .rs 1  ; player 1 score, 0-15
+score2Low     .rs 1  ; player 1 score, 0-15
 score2Ones     .rs 1  ; player 2 score, 0-15
 score2Tens     .rs 1  ; player 2 score, 0-15
-score1low  .rs 1  ; player 1 score, 0-15
-score2low  .rs 1  ; player 2 score, 0-15
-score110low  .rs 1  ; player 1 score, 0-15
-score210low  .rs 1  ; player 2 score, 0-15
 pointerLo  .rs 1   ; pointer variables are declared in RAM
 pointerHi  .rs 1   ; low byte first, high byte immediately after
 
@@ -49,13 +49,6 @@ LEFTWALL       = $04
   
 PADDLE1X       = $09  ; horizontal position for paddles, doesnt move
 PADDLE2X       = $F0
-
-SCOREHIGH       = $20
-
-SCORE1LOW       = $2D
-SCORE110LOW     = $2C
-SCORE2LOW       = $32
-SCORE210LOW     = $31
 
 A_PRESSED       = $80
 B_PRESSED       = $40
@@ -105,16 +98,6 @@ clrmem:
 	;;:Set starting game state
   LDA #STATETITLE
   STA gamestate
-
-	lda #$0
-  sta score1Ones
-  sta score1Tens
-  sta score2Ones
-  sta score2Tens
-	sta score1low
-	sta score110low
-	sta score2low
-	sta score210low
 
 	jsr LoadBackground
 
@@ -209,15 +192,15 @@ NMI:
       sta score2Ones
       sta score2Tens
 
-			lda #SCORE1LOW
-			sta score1low
-			lda #SCORE2LOW
-			sta score2low
+	    lda #$20
+			sta score1High
+			sta score2High
 
-			lda #SCORE110LOW
-			sta score110low
-			lda #SCORE210LOW
-			sta score210low
+	    lda #$4C
+			sta score1Low
+	    
+	    lda #$51
+			sta score2Low
 
 			jsr TurnOffScreenAndNMI
 	  	jsr LoadAnotherBackground
@@ -510,10 +493,10 @@ NMI:
  
   DrawScore:
     LDA $2002
-    LDA #$20
+    LDA score1High
     STA $2006
-    LDA #$4C
-    STA $2006          ; start drawing the score at PPU $2020
+    LDA score1Low
+    STA $2006
     
     LDA score1Tens      ; next digit
     STA $2007
@@ -521,10 +504,10 @@ NMI:
     STA $2007
 
     LDA $2002
-    LDA #$20
+    LDA score2High
     STA $2006
-    LDA #$51
-    STA $2006          ; start drawing the score at PPU $2020
+    LDA score2Low
+    STA $2006
 
     LDA score2Tens      ; next digit
     STA $2007
