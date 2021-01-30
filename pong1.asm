@@ -47,12 +47,10 @@ TOPWALL        = $20
 BOTTOMWALL     = $E0
 LEFTWALL       = $04
   
-PADDLE1X       					= $22  ; horizontal position for paddles, doesnt move
-PADDLE1X_COLLISION_EDGE = $1A
-PADDLE2X                = $D6
-PADDLE2X_COLLISION_EDGE = $CE
+PADDLE1X       = $09  ; horizontal position for paddles, doesnt move
+PADDLE2X       = $F0
 
-SCOREHIGH     = $20
+SCOREHIGH       = $20
 
 SCORE1LOW       = $2D
 SCORE110LOW     = $2C
@@ -243,6 +241,11 @@ NMI:
 		  LDA buttons1
 		  AND #UP_PRESSED
 		  BEQ CheckP1UpDone
+
+      lda paddle1ytop
+      cmp #TOPWALL
+      beq CheckP1UpDone
+
       LDA paddle1ytop
       SEC             ; make sure carry flag is set
       SBC #$02        ; A = A - 1
@@ -261,6 +264,11 @@ NMI:
 		  LDA buttons1
 		  AND #DOWN_PRESSED
 		  BEQ CheckP1DownDone
+
+      lda paddle1yend
+      CMP #BOTTOMWALL
+      beq CheckP1DownDone
+
       LDA paddle1ytop
       CLC             ; make sure the carry flag is clear
       ADC #$02        ; A = A + 1
@@ -279,6 +287,11 @@ NMI:
 		  LDA buttons2
 		  AND #UP_PRESSED
 		  BEQ CheckP2UpDone
+      
+      lda paddle2ytop
+      cmp #TOPWALL
+      beq CheckP2UpDone
+
       LDA paddle2ytop
       SEC             ; make sure carry flag is set
       SBC #$02        ; A = A - 1
@@ -297,6 +310,11 @@ NMI:
 		  LDA buttons2
 		  AND #DOWN_PRESSED
 		  BEQ CheckP2DownDone
+
+      lda paddle2yend
+      CMP #BOTTOMWALL
+      beq CheckP2DownDone
+
       LDA paddle2ytop
       CLC             ; make sure the carry flag is clear
       ADC #$02        ; A = A + 1
@@ -392,41 +410,41 @@ NMI:
     MoveBallDownDone:
   
     CheckPaddleCollision:
+  ;;if ball x < paddle1x
+  ;;  if ball y > paddle y top
+  ;;    if ball y < paddle y bottom
+  ;;      bounce, ball now moving left
   		lda ballx
-  		cmp #PADDLE1X_COLLISION_EDGE
-  		bcc CheckPaddle1Collision
+  		cmp #PADDLE1X
+      bcs CheckPaddle1CollisionDone
 
-  		LDA ballx
-  		CMP #PADDLE2X_COLLISION_EDGE
-  		BCS CheckPaddle2Collision
+  		lda bally
+      cmp paddle1ytop
+      bcc CheckPaddle1CollisionDone
 
-      JMP CheckPaddleCollisionDone
+  		lda bally
+      cmp paddle1yend
+      bcs CheckPaddle1CollisionDone
 
-    CheckPaddle1Collision:
-			LDA bally
-		  CMP paddle1ytop
-		  BCC CheckPaddleCollisionDone
-
-			LDA bally
-		  CMP paddle1yend
-		  BCS CheckPaddleCollisionDone
-
-  		LDA #$00
-  		STA ballleft
-  		LDA #$01
-  		STA ballright                      ;; bounce, ball now moving up
+  		lda #$00
+      sta ballleft
+      lda #$01
+      sta ballright                      ;; bounce, ball now moving up
 			jsr BounceSound
 
-      JMP CheckPaddleCollisionDone
+      CheckPaddle1CollisionDone:
 
-    CheckPaddle2Collision:
-			LDA bally
-		  CMP paddle2ytop
-		  BCC CheckPaddleCollisionDone
+  		lda ballx
+  		cmp #PADDLE2X
+      bcs CheckPaddle2CollisionDone
 
-			LDA bally
-		  CMP paddle2yend
-		  BCS CheckPaddleCollisionDone
+  		lda bally
+      cmp paddle2ytop
+      bcc CheckPaddle2CollisionDone
+
+  		lda bally
+      cmp paddle2yend
+      bcs CheckPaddle2CollisionDone
 
   		LDA #$01
   		STA ballleft
@@ -434,9 +452,8 @@ NMI:
   		STA ballright                      ;; bounce, ball now moving up
 			jsr BounceSound
 
-      JMP CheckPaddleCollisionDone
+      CheckPaddle2CollisionDone:
 
-		CheckPaddleCollisionDone:
       JMP GameEngineDone
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
