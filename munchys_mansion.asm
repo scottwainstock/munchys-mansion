@@ -36,6 +36,7 @@ score2Ones     .rs 1  ; player 2 score, 0-15
 score2Tens     .rs 1  ; player 2 score, 0-15
 pointerLo  .rs 1   ; pointer variables are declared in RAM
 pointerHi  .rs 1   ; low byte first, high byte immediately after
+current_background_index .rs 1
 
 ;; DECLARE SOME CONSTANTS HERE
 STATETITLE     = $00  ; displaying title screen
@@ -98,8 +99,10 @@ clrmem:
 	;;:Set starting game state
   LDA #STATETITLE
   STA gamestate
+	LDX #0
+  STA current_background_index
 
-  jsr LoadTitleBackground
+  jsr LoadBackground
 
   LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   STA $2000
@@ -559,8 +562,12 @@ CheckIfGameIsOver:
 	jmp CheckIfGameIsOverDone
 
 	GameIsOver:
+		; setup background
+		LDX #4
+  	STA current_background_index
+
 	  jsr TurnOffScreenAndNMI
-	  jsr LoadGameOverBackground
+	  jsr LoadBackground
 	  jsr TurnOnScreenAndNMI
 
 		lda #STATEGAMEOVER
@@ -595,16 +602,18 @@ LoadPalettes:
 	                        ; if compare was equal to 32, keep going down
   rts
 
-LoadTitleBackground:
+LoadBackground:
+  STX current_background_index
+
   LDA $2002             ; read PPU status to reset the high/low latch
   LDA #$20
   STA $2006             ; write the high byte of $2000 address
   LDA #$00
   STA $2006             ; write the low byte of $2000 address
 
-  LDA #$00
-  STA pointerLo       ; put the low byte of the address of background into pointer
-  LDA #HIGH(title_background)
+  LDA backgrounds, X ;load A with the low byte of the room address
+  STA pointerLo  ;store A in the zero-page RAM
+  LDA backgrounds+1, X
   STA pointerHi       ; put the high byte of the address into pointer
   
   LDX #$00            ; start at pointer + 0
@@ -624,68 +633,6 @@ LoadTitleBackground:
   		INX
   		CPX #$04
   		BNE OutsideLoop     ; run the outside loop 256 times before continuing down
-	rts
-
-LoadPlayingBackground:
-  LDA $2002             ; read PPU status to reset the high/low latch
-  LDA #$20
-  STA $2006             ; write the high byte of $2000 address
-  LDA #$00
-  STA $2006             ; write the low byte of $2000 address
-
-  LDA #$00
-  STA pointerLo       ; put the low byte of the address of background into pointer
-  LDA #HIGH(playing_background)
-  STA pointerHi       ; put the high byte of the address into pointer
-  
-  LDX #$00            ; start at pointer + 0
-  LDY #$00
-
-	AnotherOutsideLoop:
-		AnotherInsideLoop:
-  		LDA [pointerLo], y  ; copy one background byte from address in pointer plus Y
-  		STA $2007           ; this runs 256 * 4 times
-  		
-  		INY                 ; inside loop counter
-  		CPY #$00
-  		BNE AnotherInsideLoop      ; run the inside loop 256 times before continuing down
-  		
-  		INC pointerHi       ; low byte went 0 to 256, so high byte needs to be changed now
-  		
-  		INX
-  		CPX #$04
-  		BNE AnotherOutsideLoop     ; run the outside loop 256 times before continuing down
-	rts
-
-LoadGameOverBackground:
-  LDA $2002             ; read PPU status to reset the high/low latch
-  LDA #$20
-  STA $2006             ; write the high byte of $2000 address
-  LDA #$00
-  STA $2006             ; write the low byte of $2000 address
-
-  LDA #$00
-  STA pointerLo       ; put the low byte of the address of background into pointer
-  LDA #HIGH(gameover_background)
-  STA pointerHi       ; put the high byte of the address into pointer
-  
-  LDX #$00            ; start at pointer + 0
-  LDY #$00
-
-	GameOverOutsideLoop:
-		GameOverInsideLoop:
-  		LDA [pointerLo], y  ; copy one background byte from address in pointer plus Y
-  		STA $2007           ; this runs 256 * 4 times
-  		
-  		INY                 ; inside loop counter
-  		CPY #$00
-  		BNE GameOverInsideLoop      ; run the inside loop 256 times before continuing down
-  		
-  		INC pointerHi       ; low byte went 0 to 256, so high byte needs to be changed now
-  		
-  		INX
-  		CPX #$04
-  		BNE GameOverOutsideLoop     ; run the outside loop 256 times before continuing down
 	rts
 
 IncrementScoreOne:
@@ -793,9 +740,13 @@ InitPlayingState:
   
   lda #$51
   sta score2Low
+
+	; setup background
+	LDX #2
+  STA current_background_index
   
   jsr TurnOffScreenAndNMI
-  jsr LoadPlayingBackground
+  jsr LoadBackground
   jsr TurnOnScreenAndNMI
   
   LDA #STATEPLAYING
@@ -815,6 +766,9 @@ playing_background:
 
 gameover_background:
   .include "gameover_background.asm"
+
+backgrounds:
+  .word title_background, playing_background, gameover_background
 
 palette:
   .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
