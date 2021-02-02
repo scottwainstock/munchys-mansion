@@ -156,13 +156,13 @@ NMI:
 ;;;;;;;;
  
   EngineTitle:
-		CheckStart:
+    .CheckStart:
 		  LDA buttons1 ; player 1 - A
 		  AND #START_PRESSED ; erase everything but bit 0
-		  BEQ CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+      BEQ .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
       jsr InitPlayingState
 
-		CheckStartDone:
+    .CheckStartDone:
       JMP GameEngineDone
 
 ;;;;;;;;; 
@@ -170,23 +170,23 @@ NMI:
   EngineGameOver:
 		LDA buttons1 ; player 1 - A
 		AND #START_PRESSED ; erase everything but bit 0
-    BEQ GameOverCheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+    BEQ .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
     jsr InitPlayingState
 
-    GameOverCheckStartDone:
+    .CheckStartDone:
       JMP GameEngineDone
  
 ;;;;;;;;;;;
  
   EnginePlaying:
-		CheckP1Up:
+    .CheckP1Up:
 		  LDA buttons1
 		  AND #UP_PRESSED
-		  BEQ CheckP1UpDone
+      BEQ .CheckP1UpDone
 
       lda paddle1ytop
       cmp #TOPWALL
-      beq CheckP1UpDone
+      beq .CheckP1UpDone
 
       LDA paddle1ytop
       SEC             ; make sure carry flag is set
@@ -199,17 +199,17 @@ NMI:
 			SEC
 			SBC #$08
       STA paddle1yend ; save new paddley end position
-      CheckP1UpDone:
+      .CheckP1UpDone:
         ;noop
 
-		CheckP1Down:
+    .CheckP1Down:
 		  LDA buttons1
 		  AND #DOWN_PRESSED
-		  BEQ CheckP1DownDone
+      BEQ .CheckP1DownDone
 
       lda paddle1yend
       CMP #BOTTOMWALL
-      beq CheckP1DownDone
+      beq .CheckP1DownDone
 
       LDA paddle1ytop
       CLC             ; make sure the carry flag is clear
@@ -222,17 +222,17 @@ NMI:
 			CLC
  		  ADC #$08
       STA paddle1yend ; save new paddley end position
-      CheckP1DownDone:
+      .CheckP1DownDone:
         ;noop
 
-		CheckP2Up:
+    .CheckP2Up:
 		  LDA buttons2
 		  AND #UP_PRESSED
-		  BEQ CheckP2UpDone
+      BEQ .CheckP2UpDone
       
       lda paddle2ytop
       cmp #TOPWALL
-      beq CheckP2UpDone
+      beq .CheckP2UpDone
 
       LDA paddle2ytop
       SEC             ; make sure carry flag is set
@@ -245,17 +245,17 @@ NMI:
 			SEC
       SBC #$08        ; A = A - 1
 			STA paddle2yend
-      CheckP2UpDone:
+      .CheckP2UpDone:
         ;noop
 
-		CheckP2Down:
+    .CheckP2Down:
 		  LDA buttons2
 		  AND #DOWN_PRESSED
-		  BEQ CheckP2DownDone
+      BEQ .CheckP2DownDone
 
       lda paddle2yend
       CMP #BOTTOMWALL
-      beq CheckP2DownDone
+      beq .CheckP2DownDone
 
       LDA paddle2ytop
       CLC             ; make sure the carry flag is clear
@@ -268,12 +268,12 @@ NMI:
 			CLC
 			ADC #08
       STA paddle2yend
-      CheckP2DownDone:
+      .CheckP2DownDone:
         ;noop
 
-    MoveBallRight:
+    .MoveBallRight:
       LDA ballright
-      BEQ MoveBallRightDone   ;;if ballright=0, skip this section
+      BEQ .MoveBallRightDone   ;;if ballright=0, skip this section
     
       LDA ballx
       CLC
@@ -282,7 +282,7 @@ NMI:
     
       LDA ballx
       CMP #RIGHTWALL
-      BCC MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
+      BCC .MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
       LDA #$00
       STA ballright
       LDA #$01
@@ -291,11 +291,12 @@ NMI:
       ;;in real game, give point to player 1, reset ball
       jsr IncrementScoreOne
 			jsr CheckIfGameIsOver
-    MoveBallRightDone:
+
+      .MoveBallRightDone:
   
-    MoveBallLeft:
+    .MoveBallLeft:
       LDA ballleft
-      BEQ MoveBallLeftDone   ;;if ballleft=0, skip this section
+      BEQ .MoveBallLeftDone   ;;if ballleft=0, skip this section
     
       LDA ballx
       SEC
@@ -304,7 +305,7 @@ NMI:
     
       LDA ballx
       CMP #LEFTWALL
-      BCS MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
+      BCS .MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
       LDA #$01
       STA ballright
       LDA #$00
@@ -313,11 +314,12 @@ NMI:
       ;;in real game, give point to player 2, reset ball
       jsr IncrementScoreTwo
 			jsr CheckIfGameIsOver
-    MoveBallLeftDone:
+
+      .MoveBallLeftDone:
   
-    MoveBallUp:
+    .MoveBallUp:
       LDA ballup
-      BEQ MoveBallUpDone   ;;if ballup=0, skip this section
+      BEQ .MoveBallUpDone   ;;if ballup=0, skip this section
     
       LDA bally
       SEC
@@ -326,16 +328,17 @@ NMI:
     
       LDA bally
       CMP #TOPWALL
-      BCS MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
+      BCS .MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
       LDA #$01
       STA balldown
       LDA #$00
       STA ballup         ;;bounce, ball now moving down
-    MoveBallUpDone:
+
+      .MoveBallUpDone:
   
-    MoveBallDown:
+    .MoveBallDown:
       LDA balldown
-      BEQ MoveBallDownDone   ;;if ballup=0, skip this section
+      BEQ .MoveBallDownDone   ;;if ballup=0, skip this section
     
       LDA bally
       CLC
@@ -344,29 +347,30 @@ NMI:
     
       LDA bally
       CMP #BOTTOMWALL
-      BCC MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
+      BCC .MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
       LDA #$00
       STA balldown
       LDA #$01
       STA ballup         ;;bounce, ball now moving down
-    MoveBallDownDone:
+
+      .MoveBallDownDone:
   
-    CheckPaddleCollision:
-  ;;if ball x < paddle1x
-  ;;  if ball y > paddle y top
-  ;;    if ball y < paddle y bottom
-  ;;      bounce, ball now moving left
+    .CheckPaddleCollision:
+      ;;if ball x < paddle1x
+      ;;  if ball y > paddle y top
+      ;;    if ball y < paddle y bottom
+      ;;      bounce, ball now moving left
   		lda ballx
   		cmp #PADDLE1X
-      bcs CheckPaddle1CollisionDone
+      bcs .CheckPaddle1CollisionDone
 
   		lda bally
       cmp paddle1ytop
-      bcc CheckPaddle1CollisionDone
+      bcc .CheckPaddle1CollisionDone
 
   		lda bally
       cmp paddle1yend
-      bcs CheckPaddle1CollisionDone
+      bcs .CheckPaddle1CollisionDone
 
   		lda #$00
       sta ballleft
@@ -374,19 +378,19 @@ NMI:
       sta ballright                      ;; bounce, ball now moving up
 			jsr BounceSound
 
-      CheckPaddle1CollisionDone:
+      .CheckPaddle1CollisionDone:
 
   		lda ballx
   		cmp #PADDLE2X
-      bcs CheckPaddle2CollisionDone
+      bcs .CheckPaddle2CollisionDone
 
   		lda bally
       cmp paddle2ytop
-      bcc CheckPaddle2CollisionDone
+      bcc .CheckPaddle2CollisionDone
 
   		lda bally
       cmp paddle2yend
-      bcs CheckPaddle2CollisionDone
+      bcs .CheckPaddle2CollisionDone
 
   		LDA #$01
   		STA ballleft
@@ -394,7 +398,7 @@ NMI:
   		STA ballright                      ;; bounce, ball now moving up
 			jsr BounceSound
 
-      CheckPaddle2CollisionDone:
+      .CheckPaddle2CollisionDone:
 
       JMP GameEngineDone
 
@@ -481,13 +485,13 @@ NMI:
     LDA #$00
     STA $4016
     LDX #$08
-  ReadController1Loop:
-    LDA $4016
-    LSR A            ; bit0 -> Carry
-    ROL buttons1     ; bit0 <- Carry
-    DEX
-    BNE ReadController1Loop
-    RTS
+    .Loop:
+      LDA $4016
+      LSR A            ; bit0 -> Carry
+      ROL buttons1     ; bit0 <- Carry
+      DEX
+      BNE .Loop
+      RTS
     
   ReadController2:
     LDA #$01
@@ -495,13 +499,13 @@ NMI:
     LDA #$00
     STA $4016
     LDX #$08
-  ReadController2Loop:
-    LDA $4017
-    LSR A            ; bit0 -> Carry
-    ROL buttons2     ; bit0 <- Carry
-    DEX
-    BNE ReadController2Loop
-    RTS  
+    .Loop:
+      LDA $4017
+      LSR A            ; bit0 -> Carry
+      ROL buttons2     ; bit0 <- Carry
+      DEX
+      BNE .Loop
+      RTS  
 
 ;---------------------------;
 ;     SUBROUTINES           ;
@@ -543,25 +547,25 @@ ScoreSound:
 CheckIfGameIsOver:
   lda score1Tens
 	cmp #$01
-  bne Check1OnesDone
+  bne .Check1OnesDone
 
   lda score1Ones
 	cmp #$05
-	beq GameIsOver
-  Check1OnesDone:
+  beq .GameIsOver
+  .Check1OnesDone:
 
   lda score2Tens
 	cmp #$01
-  bne Check2OnesDone
+  bne .Check2OnesDone
 
   lda score2Ones
 	cmp #$05
-	beq GameIsOver
-  Check2OnesDone:
+  beq .GameIsOver
+  .Check2OnesDone:
 
-	jmp CheckIfGameIsOverDone
+  jmp .Done
 
-	GameIsOver:
+  .GameIsOver:
 		; setup background
 		LDX #4
   	STA current_background_index
@@ -573,8 +577,8 @@ CheckIfGameIsOver:
 		lda #STATEGAMEOVER
 		sta gamestate
 
-		jmp CheckIfGameIsOverDone
-	CheckIfGameIsOverDone:
+    jmp .Done
+  .Done:
 	  rts
 
 VBlankWait:
@@ -589,7 +593,7 @@ LoadPalettes:
   LDA #$00
   STA $2006             ; write the low byte of $3F00 address
   LDX #$00              ; start out at 0
-	LoadPalettesLoop:
+  .Loop:
 	  LDA palette, x        ; load data from address (palette + the value in x)
 	                          ; 1st time through loop it will load palette+0
 	                          ; 2nd time through loop it will load palette+1
@@ -598,8 +602,8 @@ LoadPalettes:
 	  STA $2007             ; write to PPU
 	  INX                   ; X = X + 1
 	  CPX #$20              ; Compare X to hex $10, decimal 16 - copying 16 bytes = 4 sprites
-	  BNE LoadPalettesLoop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
-	                        ; if compare was equal to 32, keep going down
+    BNE .Loop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
+	             ; if compare was equal to 32, keep going down
   rts
 
 LoadBackground:
@@ -619,31 +623,31 @@ LoadBackground:
   LDX #$00            ; start at pointer + 0
   LDY #$00
 
-	OutsideLoop:
-		InsideLoop:
+  .OutsideLoop:
+    .InsideLoop:
   		LDA [pointerLo], y  ; copy one background byte from address in pointer plus Y
   		STA $2007           ; this runs 256 * 4 times
   		
   		INY                 ; inside loop counter
   		CPY #$00
-  		BNE InsideLoop      ; run the inside loop 256 times before continuing down
+      BNE .InsideLoop      ; run the inside loop 256 times before continuing down
   		
   		INC pointerHi       ; low byte went 0 to 256, so high byte needs to be changed now
   		
   		INX
   		CPX #$04
-  		BNE OutsideLoop     ; run the outside loop 256 times before continuing down
+      BNE .OutsideLoop     ; run the outside loop 256 times before continuing down
 	rts
 
 IncrementScoreOne:
-  Inc1Ones:
+  .Inc1Ones:
     LDA score1Ones      ; load the lowest digit of the number
     CLC 
     ADC #$01           ; add one
     STA score1Ones
     CMP #$0A           ; check if it overflowed, now equals 10
-    BNE Inc1Done        ; if there was no overflow, all done
-  Inc1Tens:
+    BNE .Done        ; if there was no overflow, all done
+  .Inc1Tens:
     LDA #$00
     STA score1Ones      ; wrap digit to 0
     LDA score1Tens      ; load the next digit
@@ -651,20 +655,20 @@ IncrementScoreOne:
     ADC #$01           ; add one, the carry from previous digit
     STA score1Tens
     CMP #$0A           ; check if it overflowed, now equals 10
-    BNE Inc1Done        ; if there was no overflow, all done
-  Inc1Done:
+    BNE .Done        ; if there was no overflow, all done
+  .Done:
 		jsr ScoreSound
 		rts
 
 IncrementScoreTwo:
-  Inc2Ones:
+  .Inc2Ones:
     LDA score2Ones      ; load the lowest digit of the number
     CLC 
     ADC #$01           ; add one
     STA score2Ones
     CMP #$0A           ; check if it overflowed, now equals 10
-    BNE Inc2Done        ; if there was no overflow, all done
-  Inc2Tens:
+    BNE .Done        ; if there was no overflow, all done
+  .Inc2Tens:
     LDA #$00
     STA score2Ones      ; wrap digit to 0
     LDA score2Tens      ; load the next digit
@@ -672,8 +676,8 @@ IncrementScoreTwo:
     ADC #$01           ; add one, the carry from previous digit
     STA score2Tens
     CMP #$0A           ; check if it overflowed, now equals 10
-    BNE Inc2Done        ; if there was no overflow, all done
-  Inc2Done:
+    BNE .Done        ; if there was no overflow, all done
+  .Done:
 		jsr ScoreSound
 		rts
 
