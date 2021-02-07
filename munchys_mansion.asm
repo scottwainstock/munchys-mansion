@@ -10,6 +10,7 @@
   .rsset $0000  ;;start variables at ram location 0
   
 gamestate  .rs 1  ; .rs 1 means reserve one byte of space
+
 ballx      .rs 1  ; ball horizontal position
 bally      .rs 1  ; ball vertical position
 ballup     .rs 1  ; 1 = ball moving up
@@ -18,22 +19,28 @@ ballleft   .rs 1  ; 1 = ball moving left
 ballright  .rs 1  ; 1 = ball moving right
 ballspeedx .rs 1  ; ball horizontal speed per frame
 ballspeedy .rs 1  ; ball vertical speed per frame
-paddle1ytop   .rs 1  ; player 1 paddle top vertical position
-paddle1ybot   .rs 1  ; player 1 paddle top vertical position
-paddle1yend   .rs 1  ; player 1 paddle top vertical position
-paddle2ytop   .rs 1  ; player 2 paddle bottom vertical position
-paddle2ybot   .rs 1  ; player 2 paddle bottom vertical position
-paddle2yend   .rs 1  ; player 2 paddle bottom vertical position
+
+munchy_top_left_x     .rs 1
+munchy_top_right_x    .rs 1
+munchy_bottom_left_x  .rs 1
+munchy_bottom_right_x .rs 1
+munchy_top_left_y     .rs 1
+munchy_top_right_y    .rs 1
+munchy_bottom_left_y  .rs 1
+munchy_bottom_right_y .rs 1
+
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
-score1High     .rs 1  ; player 1 score, 0-15
-score1Low     .rs 1  ; player 1 score, 0-15
-score1Ones     .rs 1  ; player 1 score, 0-15
-score1Tens     .rs 1  ; player 1 score, 0-15
-score2High     .rs 1  ; player 1 score, 0-15
-score2Low     .rs 1  ; player 1 score, 0-15
-score2Ones     .rs 1  ; player 2 score, 0-15
-score2Tens     .rs 1  ; player 2 score, 0-15
+
+score1High .rs 1  ; player 1 score, 0-15
+score1Low  .rs 1  ; player 1 score, 0-15
+score1Ones .rs 1  ; player 1 score, 0-15
+score1Tens .rs 1  ; player 1 score, 0-15
+score2High .rs 1  ; player 1 score, 0-15
+score2Low  .rs 1  ; player 1 score, 0-15
+score2Ones .rs 1  ; player 2 score, 0-15
+score2Tens .rs 1  ; player 2 score, 0-15
+
 pointerLo  .rs 1   ; pointer variables are declared in RAM
 pointerHi  .rs 1   ; low byte first, high byte immediately after
 current_background_index .rs 1
@@ -48,9 +55,6 @@ TOPWALL        = $20
 BOTTOMWALL     = $E0
 LEFTWALL       = $04
   
-PADDLE1X       = $09  ; horizontal position for paddles, doesnt move
-PADDLE2X       = $F0
-
 A_PRESSED       = $80
 B_PRESSED       = $40
 SEL_PRESSED     = $20
@@ -59,6 +63,13 @@ UP_PRESSED      = $08
 DOWN_PRESSED    = $04
 LEFT_PRESSED    = $02
 RIGHT_PRESSED   = $01
+
+BALL_ADDR = $0200
+
+MUNCHY_TOP_LEFT_ADDR = $0204
+MUNCHY_TOP_RIGHT_ADDR = $0208
+MUNCHY_BOTTOM_LEFT_ADDR = $020C
+MUNCHY_BOTTOM_RIGHT_ADDR = $0210
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -95,6 +106,7 @@ clrmem:
   jsr VBlankWait
 
   jsr LoadPalettes
+  jsr LoadSprites
    
 	;;:Set starting game state
   LDA #STATETITLE
@@ -184,21 +196,29 @@ NMI:
 		  AND #UP_PRESSED
       BEQ .CheckP1UpDone
 
-      lda paddle1ytop
+      lda munchy_top_left_y
       cmp #TOPWALL
       beq .CheckP1UpDone
 
-      LDA paddle1ytop
-      SEC             ; make sure carry flag is set
-      SBC #$02        ; A = A - 1
-      STA paddle1ytop ; save new paddley position
-      LDA paddle1ybot
-      SEC             ; make sure carry flag is set
-      SBC #$02        ; A = A - 1
-      STA paddle1ybot ; save new paddley position
-			SEC
-			SBC #$08
-      STA paddle1yend ; save new paddley end position
+      LDA munchy_top_left_y
+      SEC
+      SBC #$02
+      STA munchy_top_left_y
+
+      LDA munchy_top_right_y
+      SEC
+      SBC #$02
+      STA munchy_top_right_y
+
+      LDA munchy_bottom_left_y
+      SEC
+      SBC #$02
+      STA munchy_bottom_left_y
+
+      LDA munchy_bottom_right_y
+      SEC
+      SBC #$02
+      STA munchy_bottom_right_y
       .CheckP1UpDone:
         ;noop
 
@@ -207,68 +227,83 @@ NMI:
 		  AND #DOWN_PRESSED
       BEQ .CheckP1DownDone
 
-      lda paddle1yend
+      lda munchy_top_left_y
       CMP #BOTTOMWALL
       beq .CheckP1DownDone
 
-      LDA paddle1ytop
-      CLC             ; make sure the carry flag is clear
-      ADC #$02        ; A = A + 1
-      STA paddle1ytop ; save new paddley position
-      LDA paddle1ybot
-      CLC             ; make sure the carry flag is clear
-      ADC #$02        ; A = A + 1
-      STA paddle1ybot ; save new paddley position
-			CLC
- 		  ADC #$08
-      STA paddle1yend ; save new paddley end position
+      LDA munchy_top_left_y
+      CLC
+      ADC #$02
+      STA munchy_top_left_y
+      LDA munchy_top_right_y
+      CLC
+      ADC #$02
+      STA munchy_top_right_y
+      LDA munchy_bottom_left_y
+      CLC
+      ADC #$02
+      STA munchy_bottom_left_y
+      LDA munchy_bottom_right_y
+      CLC
+      ADC #$02
+      STA munchy_bottom_right_y
       .CheckP1DownDone:
         ;noop
 
-    .CheckP2Up:
-		  LDA buttons2
-		  AND #UP_PRESSED
-      BEQ .CheckP2UpDone
-      
-      lda paddle2ytop
-      cmp #TOPWALL
-      beq .CheckP2UpDone
+    .CheckP1Right:
+		  LDA buttons1
+		  AND #RIGHT_PRESSED
+      BEQ .CheckP1RightDone
 
-      LDA paddle2ytop
-      SEC             ; make sure carry flag is set
-      SBC #$02        ; A = A - 1
-      STA paddle2ytop ; save new paddley position
-      LDA paddle2ybot
-      SEC             ; make sure carry flag is set
-      SBC #$02        ; A = A - 1
-      STA paddle2ybot ; save new paddley position
-			SEC
-      SBC #$08        ; A = A - 1
-			STA paddle2yend
-      .CheckP2UpDone:
+      lda munchy_top_right_x
+      CMP #RIGHTWALL
+      beq .CheckP1RightDone
+
+      LDA munchy_top_left_x
+      CLC
+      ADC #$02
+      STA munchy_top_left_x
+      LDA munchy_top_right_x
+      CLC
+      ADC #$02
+      STA munchy_top_right_x
+      LDA munchy_bottom_left_x
+      CLC
+      ADC #$02
+      STA munchy_bottom_left_x
+      LDA munchy_bottom_right_x
+      CLC
+      ADC #$02
+      STA munchy_bottom_right_x
+      .CheckP1RightDone:
         ;noop
 
-    .CheckP2Down:
-		  LDA buttons2
-		  AND #DOWN_PRESSED
-      BEQ .CheckP2DownDone
+    .CheckP1Left:
+		  LDA buttons1
+		  AND #LEFT_PRESSED
+      BEQ .CheckP1LeftDone
 
-      lda paddle2yend
-      CMP #BOTTOMWALL
-      beq .CheckP2DownDone
+      lda munchy_top_left_x
+      CMP #LEFTWALL
+      beq .CheckP1LeftDone
 
-      LDA paddle2ytop
-      CLC             ; make sure the carry flag is clear
-      ADC #$02        ; A = A + 1
-      STA paddle2ytop ; save new paddley position
-      LDA paddle2ybot
-      CLC             ; make sure the carry flag is clear
-      ADC #$02        ; A = A + 1
-      STA paddle2ybot ; save new paddley position
-			CLC
-			ADC #08
-      STA paddle2yend
-      .CheckP2DownDone:
+      LDA munchy_top_left_x
+      SEC
+      SBC #$02
+      STA munchy_top_left_x
+      LDA munchy_top_right_x
+      SEC
+      SBC #$02
+      STA munchy_top_right_x
+      LDA munchy_bottom_left_x
+      SEC
+      SBC #$02
+      STA munchy_bottom_left_x
+      LDA munchy_bottom_right_x
+      SEC
+      SBC #$02
+      STA munchy_bottom_right_x
+      .CheckP1LeftDone:
         ;noop
 
     .MoveBallRight:
@@ -360,97 +395,42 @@ NMI:
       ;;  if ball y > paddle y top
       ;;    if ball y < paddle y bottom
       ;;      bounce, ball now moving left
-  		lda ballx
-  		cmp #PADDLE1X
-      bcs .CheckPaddle1CollisionDone
-
-  		lda bally
-      cmp paddle1ytop
-      bcc .CheckPaddle1CollisionDone
-
-  		lda bally
-      cmp paddle1yend
-      bcs .CheckPaddle1CollisionDone
-
-  		lda #$00
-      sta ballleft
-      lda #$01
-      sta ballright                      ;; bounce, ball now moving up
-			jsr BounceSound
-
-      .CheckPaddle1CollisionDone:
-
-  		lda ballx
-  		cmp #PADDLE2X
-      bcs .CheckPaddle2CollisionDone
-
-  		lda bally
-      cmp paddle2ytop
-      bcc .CheckPaddle2CollisionDone
-
-  		lda bally
-      cmp paddle2yend
-      bcs .CheckPaddle2CollisionDone
-
-  		LDA #$01
-  		STA ballleft
-  		LDA #$00
-  		STA ballright                      ;; bounce, ball now moving up
-			jsr BounceSound
-
-      .CheckPaddle2CollisionDone:
 
       JMP GameEngineDone
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
  
   UpdateSprites:
-    LDA bally  ;;update all ball sprite info
-    STA $0200
-    LDA #$75
-    STA $0201
-    LDA #$00
-    STA $0202
-    LDA ballx
-    STA $0203
+    ;update ball location
+    lda bally
+    sta BALL_ADDR
+    lda ballx
+    sta BALL_ADDR + 3
     
-    ; update paddle 1
-    LDA paddle1ytop
-    STA $0204
-    LDA #$85
-    STA $0205
-    LDA #$00
-    STA $0206
-    LDA #PADDLE1X
-    STA $0207
+		;update Munchy location
+		; top left
+    lda munchy_top_left_y
+    sta MUNCHY_TOP_LEFT_ADDR
+    lda munchy_top_left_x
+    sta MUNCHY_TOP_LEFT_ADDR + 3
 
-    LDA paddle1ybot
-    STA $0208
-    LDA #$85
-    STA $0209
-    LDA #$00
-    STA $020A
-    LDA #PADDLE1X
-    STA $020B
+		; top right
+    lda munchy_top_right_y
+    sta MUNCHY_TOP_RIGHT_ADDR
+    lda munchy_top_right_x
+    sta MUNCHY_TOP_RIGHT_ADDR + 3
 
-    ; update paddle 2
-    LDA paddle2ytop
-    STA $020C
-    LDA #$85
-    STA $020D
-    LDA #$00
-    STA $020E
-    LDA #PADDLE2X
-    STA $020F
+		; bottom left
+    lda munchy_bottom_left_y
+    sta MUNCHY_BOTTOM_LEFT_ADDR
+    lda munchy_bottom_left_x
+    sta MUNCHY_BOTTOM_LEFT_ADDR + 3
 
-    LDA paddle2ybot
-    STA $0210
-    LDA #$85
-    STA $0211
-    LDA #$00
-    STA $0212
-    LDA #PADDLE2X
-    STA $0213
+		; bottom right
+    lda munchy_bottom_right_y
+    sta MUNCHY_BOTTOM_RIGHT_ADDR
+    lda munchy_bottom_right_x
+    sta MUNCHY_BOTTOM_RIGHT_ADDR + 3
 
     RTS
  
@@ -606,6 +586,16 @@ LoadPalettes:
 	             ; if compare was equal to 32, keep going down
   rts
 
+LoadSprites:
+	ldx #$00              ; start at 0
+	LoadSpritesLoop:
+	  lda sprites, x      ; load data from address (sprites +  x)
+	  sta $0200, x ; store into RAM address ($0200 + x)
+	  inx
+	  cpx #$14
+	  bne LoadSpritesLoop
+  rts
+
 LoadBackground:
   STX current_background_index
 
@@ -708,7 +698,7 @@ InitPlayingState:
   LDA #$00
   STA ballup
   STA ballleft
-  
+
   LDA #$50
   STA bally
   LDA #$80
@@ -718,16 +708,19 @@ InitPlayingState:
   STA ballspeedx
   STA ballspeedy
   
-  ; set initial paddle y stats
-  LDA #$50
-  STA paddle1ytop
-  LDA #$58
-  STA paddle1ybot
-  LDA #$80
-  STA paddle2ytop
-  LDA #$88
-  STA paddle2ybot
-  
+  ; set initial munchy location
+	lda #80
+	sta munchy_top_left_y
+	sta munchy_top_left_x
+	sta munchy_top_right_y
+	sta munchy_bottom_left_x
+	
+	lda #88
+	sta munchy_top_right_x
+	sta munchy_bottom_left_y
+	sta munchy_bottom_right_x
+	sta munchy_bottom_right_y
+
   ; setup scores
   lda #0
   sta score1Ones
@@ -738,10 +731,8 @@ InitPlayingState:
   lda #$20
   sta score1High
   sta score2High
-  
   lda #$4C
   sta score1Low
-  
   lda #$51
   sta score2Low
 
@@ -779,11 +770,12 @@ palette:
   .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
 sprites:
-     ;vert tile attr horiz
-  .db $80, $32, $00, $80   ;sprite 0
-  .db $80, $33, $00, $88   ;sprite 1
-  .db $88, $34, $00, $80   ;sprite 2
-  .db $88, $35, $00, $88   ;sprite 3
+  ;vert tile attr horiz
+  .db 0, $75, $00, 0 ;ball
+  .db 0, $32, $00, 0 ;munchy top left
+  .db 0, $33, $00, 0 ;munchy top right
+  .db 0, $34, $00, 0 ;munchy bottom left
+  .db 0, $35, $00, 0 ;munchy bottom right
 
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
