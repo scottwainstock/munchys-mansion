@@ -65,43 +65,48 @@ LEFT_PRESSED    = $02
 RIGHT_PRESSED   = $01
 
 BALL_ADDR = $0200
+BALL_STRT_SPRITE = $75
 
-MUNCHY_TOP_LEFT_ADDR = $0204
-MUNCHY_TOP_RIGHT_ADDR = $0208
-MUNCHY_BOTTOM_LEFT_ADDR = $020C
-MUNCHY_BOTTOM_RIGHT_ADDR = $0210
+MUNCHY_TL_ADDR = $0204
+MUNCHY_TL_STRT_SPRITE = $32
+MUNCHY_TR_ADDR = $0208
+MUNCHY_TR_STRT_SPRITE = $33
+MUNCHY_BL_ADDR = $020C
+MUNCHY_BL_STRT_SPRITE = $34
+MUNCHY_BR_ADDR = $0210
+MUNCHY_BR_STRT_SPRITE = $35
 
 ;;;;;;;;;;;;;;;;;;
 
   .bank 0
   .org $C000 
 RESET:
-  SEI          ; disable IRQs
-  CLD          ; disable decimal mode
-  LDX #$40
-  STX $4017    ; disable APU frame IRQ
-  LDX #$FF
-  TXS          ; Set up stack
-  INX          ; now X = 0
-  STX $2000    ; disable NMI
-  STX $2001    ; disable rendering
-  STX $4010    ; disable DMC IRQs
+  sei          ; disable IRQs
+  cld          ; disable decimal mode
+  ldx #$40
+  stx $4017    ; disable APU frame IRQ
+  ldx #$FF
+  txs          ; Set up stack
+  inx          ; now X = 0
+  stx $2000    ; disable NMI
+  stx $2001    ; disable rendering
+  stx $4010    ; disable DMC IRQs
 
   jsr VBlankWait
 
 clrmem:
-  LDA #$00
-  STA $0000, x
-  STA $0100, x
-  STA $0300, x
-  STA $0400, x
-  STA $0500, x
-  STA $0600, x
-  STA $0700, x
-  LDA #$FE
-  STA $0200, x
-  INX
-  BNE clrmem
+  lda #$00
+  sta $0000, x
+  sta $0100, x
+  sta $0300, x
+  sta $0400, x
+  sta $0500, x
+  sta $0600, x
+  sta $0700, x
+  lda #$FE
+  sta $0200, x
+  inx
+  bne clrmem
 
   jsr VBlankWait
 
@@ -109,61 +114,61 @@ clrmem:
   jsr LoadSprites
    
 	;;:Set starting game state
-  LDA #STATE_TITLE
-  STA game_state
-	LDX #0
-  STA current_background_index
+  lda #STATE_TITLE
+  sta game_state
+	ldx #0
+  sta current_background_index
 
   jsr LoadBackground
 
-  LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
-  STA $2000
-  LDA #%00011110   ; enable sprites, enable background, no clipping on left side
-  STA $2001
+  lda #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
+  sta $2000
+  lda #%00011110   ; enable sprites, enable background, no clipping on left side
+  sta $2001
 
 Forever:
-  JMP Forever     ;jump back to Forever, infinite loop, waiting for NMI
+  jmp Forever     ;jump back to Forever, infinite loop, waiting for NMI
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 NMI:
-  LDA #$00
-  STA $2003       ; set the low byte (00) of the RAM address
-  LDA #$02
-  STA $4014       ; set the high byte (02) of the RAM address, start the transfer
+  lda #$00
+  sta $2003       ; set the low byte (00) of the RAM address
+  lda #$02
+  sta $4014       ; set the high byte (02) of the RAM address, start the transfer
 
-  JSR DrawScore
+  jsr DrawScore
 
   ;;This is the PPU clean up section, so rendering the next frame starts properly.
-  LDA #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
-  STA $2000
-  LDA #%00011110   ; enable sprites, enable background, no clipping on left side
-  STA $2001
-  LDA #$00        ;;tell the ppu there is no background scrolling
-  STA $2005
-  STA $2005
+  lda #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
+  sta $2000
+  lda #%00011110   ; enable sprites, enable background, no clipping on left side
+  sta $2001
+  lda #$00        ;;tell the ppu there is no background scrolling
+  sta $2005
+  sta $2005
     
   ;;;all graphics updates done by here, run game engine
 
-  JSR ReadController1  ;;get the current button data for player 1
-  JSR ReadController2  ;;get the current button data for player 2
+  jsr ReadController1  ;;get the current button data for player 1
+  jsr ReadController2  ;;get the current button data for player 2
   
   GameEngine:  
-    LDA game_state
-    CMP #STATE_TITLE
-    BEQ EngineTitle    ;;game is displaying title screen
+    lda game_state
+    cmp #STATE_TITLE
+    beq EngineTitle
       
-    LDA game_state
-    CMP #STATE_GAME_OVER
-    BEQ EngineGameOver  ;;game is displaying ending screen
+    lda game_state
+    cmp #STATE_GAME_OVER
+    beq EngineGameOver
     
-    LDA game_state
-    CMP #STATE_PLAYING
-    BEQ EnginePlaying   ;;game is playing
+    lda game_state
+    cmp #STATE_PLAYING
+    beq EnginePlaying
   
   GameEngineDone:  
-    JSR UpdateSprites  ;;set ball/paddle sprites from positions
-    RTI             ; return from interrupt
+    jsr UpdateSprites
+    rti
  
 ;;;;;;;;
  
@@ -192,117 +197,121 @@ NMI:
  
   EnginePlaying:
     .CheckP1Up:
-		  LDA buttons1
-		  AND #UP_PRESSED
-      BEQ .CheckP1UpDone
+		  lda buttons1
+		  and #UP_PRESSED
+      beq .CheckP1UpDone
 
       lda munchy_top_left_y
       cmp #TOP_WALL
       beq .CheckP1UpDone
 
-      LDA munchy_top_left_y
-      SEC
-      SBC #$02
-      STA munchy_top_left_y
+      lda munchy_top_left_y
+      sec
+      sbc #$02
+      sta munchy_top_left_y
 
-      LDA munchy_top_right_y
-      SEC
-      SBC #$02
-      STA munchy_top_right_y
+      lda munchy_top_right_y
+      sec
+      sbc #$02
+      sta munchy_top_right_y
 
-      LDA munchy_bottom_left_y
-      SEC
-      SBC #$02
-      STA munchy_bottom_left_y
+      lda munchy_bottom_left_y
+      sec
+      sbc #$02
+      sta munchy_bottom_left_y
 
-      LDA munchy_bottom_right_y
-      SEC
-      SBC #$02
-      STA munchy_bottom_right_y
+      lda munchy_bottom_right_y
+      sec
+      sbc #$02
+      sta munchy_bottom_right_y
       .CheckP1UpDone:
         ;noop
 
     .CheckP1Down:
-		  LDA buttons1
-		  AND #DOWN_PRESSED
-      BEQ .CheckP1DownDone
-
-      lda munchy_top_left_y
-      CMP #BOTTON_WALL
+		  lda buttons1
+		  and #DOWN_PRESSED
       beq .CheckP1DownDone
 
-      LDA munchy_top_left_y
-      CLC
-      ADC #$02
-      STA munchy_top_left_y
-      LDA munchy_top_right_y
-      CLC
-      ADC #$02
-      STA munchy_top_right_y
-      LDA munchy_bottom_left_y
-      CLC
-      ADC #$02
-      STA munchy_bottom_left_y
-      LDA munchy_bottom_right_y
-      CLC
-      ADC #$02
-      STA munchy_bottom_right_y
+      lda munchy_top_left_y
+      cmp #BOTTON_WALL
+      beq .CheckP1DownDone
+
+      lda munchy_top_left_y
+      clc
+      adc #$02
+      sta munchy_top_left_y
+      lda munchy_top_right_y
+      clc
+      adc #$02
+      sta munchy_top_right_y
+      lda munchy_bottom_left_y
+      clc
+      adc #$02
+      sta munchy_bottom_left_y
+      lda munchy_bottom_right_y
+      clc
+      adc #$02
+      sta munchy_bottom_right_y
       .CheckP1DownDone:
         ;noop
 
     .CheckP1Right:
-		  LDA buttons1
-		  AND #RIGHT_PRESSED
-      BEQ .CheckP1RightDone
-
-      lda munchy_top_right_x
-      CMP #RIGHT_WALL
+		  lda buttons1
+		  and #RIGHT_PRESSED
       beq .CheckP1RightDone
 
-      LDA munchy_top_left_x
-      CLC
-      ADC #$02
-      STA munchy_top_left_x
-      LDA munchy_top_right_x
-      CLC
-      ADC #$02
-      STA munchy_top_right_x
-      LDA munchy_bottom_left_x
-      CLC
-      ADC #$02
-      STA munchy_bottom_left_x
-      LDA munchy_bottom_right_x
-      CLC
-      ADC #$02
-      STA munchy_bottom_right_x
+      jsr AnimateMunchyRight
+
+      lda munchy_top_right_x
+      cmp #RIGHT_WALL
+      beq .CheckP1RightDone
+
+      lda munchy_top_left_x
+      clc
+      adc #$02
+      sta munchy_top_left_x
+      lda munchy_top_right_x
+      clc
+      adc #$02
+      sta munchy_top_right_x
+      lda munchy_bottom_left_x
+      clc
+      adc #$02
+      sta munchy_bottom_left_x
+      lda munchy_bottom_right_x
+      clc
+      adc #$02
+      sta munchy_bottom_right_x
       .CheckP1RightDone:
         ;noop
 
     .CheckP1Left:
-		  LDA buttons1
-		  AND #LEFT_PRESSED
-      BEQ .CheckP1LeftDone
-
-      lda munchy_top_left_x
-      CMP #LEFT_WALL
+		  lda buttons1
+		  and #LEFT_PRESSED
       beq .CheckP1LeftDone
 
-      LDA munchy_top_left_x
-      SEC
-      SBC #$02
-      STA munchy_top_left_x
-      LDA munchy_top_right_x
-      SEC
-      SBC #$02
-      STA munchy_top_right_x
-      LDA munchy_bottom_left_x
-      SEC
-      SBC #$02
-      STA munchy_bottom_left_x
-      LDA munchy_bottom_right_x
-      SEC
-      SBC #$02
-      STA munchy_bottom_right_x
+      jsr AnimateMunchyLeft
+
+      lda munchy_top_left_x
+      cmp #LEFT_WALL
+      beq .CheckP1LeftDone
+
+      lda munchy_top_left_x
+      sec
+      sbc #$02
+      sta munchy_top_left_x
+      lda munchy_top_right_x
+      sec
+      sbc #$02
+      sta munchy_top_right_x
+      lda munchy_bottom_left_x
+      sec
+      sbc #$02
+      sta munchy_bottom_left_x
+      lda munchy_bottom_right_x
+      sec
+      sbc #$02
+      sta munchy_bottom_right_x
       .CheckP1LeftDone:
         ;noop
 
@@ -399,6 +408,61 @@ NMI:
       JMP GameEngineDone
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  AnimateMunchyRight:
+    ; check if munchy is facing right
+    lda MUNCHY_TL_ADDR + 1
+    cmp #MUNCHY_TL_STRT_SPRITE
+    beq .Done
+
+    jsr FlipMunchy
+
+    lda #MUNCHY_TL_STRT_SPRITE
+    sta MUNCHY_TL_ADDR + 1
+    lda #MUNCHY_TR_STRT_SPRITE
+    sta MUNCHY_TR_ADDR + 1
+    lda #MUNCHY_BL_STRT_SPRITE
+    sta MUNCHY_BL_ADDR + 1
+    lda #MUNCHY_BR_STRT_SPRITE
+    sta MUNCHY_BR_ADDR + 1
+
+    ; walking animation here
+
+    .Done:
+
+    rts
+
+  AnimateMunchyLeft:
+    ; check if munchy is facing left
+    lda MUNCHY_TL_ADDR + 1
+    cmp #MUNCHY_TL_STRT_SPRITE
+    bne .Done
+
+    jsr FlipMunchy
+
+    lda #MUNCHY_TR_STRT_SPRITE
+    sta MUNCHY_TL_ADDR + 1
+    lda #MUNCHY_TL_STRT_SPRITE
+    sta MUNCHY_TR_ADDR + 1
+    lda #MUNCHY_BR_STRT_SPRITE
+    sta MUNCHY_BL_ADDR + 1
+    lda #MUNCHY_BL_STRT_SPRITE
+    sta MUNCHY_BR_ADDR + 1
+
+    ; walking animation here
+
+    .Done:
+
+    rts
+
+  FlipMunchy:
+    lda MUNCHY_TL_ADDR + 2
+    eor #%01000000
+    sta MUNCHY_TL_ADDR + 2
+    sta MUNCHY_TR_ADDR + 2
+    sta MUNCHY_BL_ADDR + 2
+    sta MUNCHY_BR_ADDR + 2
+
+    rts
  
   UpdateSprites:
     ;update ball location
@@ -410,82 +474,82 @@ NMI:
 		;update Munchy location
 		; top left
     lda munchy_top_left_y
-    sta MUNCHY_TOP_LEFT_ADDR
+    sta MUNCHY_TL_ADDR
     lda munchy_top_left_x
-    sta MUNCHY_TOP_LEFT_ADDR + 3
+    sta MUNCHY_TL_ADDR + 3
 
 		; top right
     lda munchy_top_right_y
-    sta MUNCHY_TOP_RIGHT_ADDR
+    sta MUNCHY_TR_ADDR
     lda munchy_top_right_x
-    sta MUNCHY_TOP_RIGHT_ADDR + 3
+    sta MUNCHY_TR_ADDR + 3
 
 		; bottom left
     lda munchy_bottom_left_y
-    sta MUNCHY_BOTTOM_LEFT_ADDR
+    sta MUNCHY_BL_ADDR
     lda munchy_bottom_left_x
-    sta MUNCHY_BOTTOM_LEFT_ADDR + 3
+    sta MUNCHY_BL_ADDR + 3
 
 		; bottom right
     lda munchy_bottom_right_y
-    sta MUNCHY_BOTTOM_RIGHT_ADDR
+    sta MUNCHY_BR_ADDR
     lda munchy_bottom_right_x
-    sta MUNCHY_BOTTOM_RIGHT_ADDR + 3
+    sta MUNCHY_BR_ADDR + 3
 
-    RTS
+    rts
  
   DrawScore:
-    LDA $2002
-    LDA score1_high
-    STA $2006
-    LDA score1_low
-    STA $2006
+    lda $2002
+    lda score1_high
+    sta $2006
+    lda score1_low
+    sta $2006
     
-    LDA score1_tens      ; next digit
-    STA $2007
-    LDA score1_ones      ; last digit
-    STA $2007
+    lda score1_tens      ; next digit
+    sta $2007
+    lda score1_ones      ; last digit
+    sta $2007
 
-    LDA $2002
-    LDA score2_high
-    STA $2006
-    LDA score2_low
-    STA $2006
+    lda $2002
+    lda score2_high
+    sta $2006
+    lda score2_low
+    sta $2006
 
-    LDA score2_tens      ; next digit
-    STA $2007
-    LDA score2_ones      ; last digit
-    STA $2007
+    lda score2_tens      ; next digit
+    sta $2007
+    lda score2_ones      ; last digit
+    sta $2007
 
-    RTS
+    rts
    
   ReadController1:
-    LDA #$01
-    STA $4016
-    LDA #$00
-    STA $4016
-    LDX #$08
+    lda #$01
+    sta $4016
+    lda #$00
+    sta $4016
+    ldx #$08
     .Loop:
-      LDA $4016
-      LSR A            ; bit0 -> Carry
-      ROL buttons1     ; bit0 <- Carry
-      DEX
-      BNE .Loop
-      RTS
+      lda $4016
+      lsr A            ; bit0 -> Carry
+      rol buttons1     ; bit0 <- Carry
+      dex
+      bne .Loop
+      rts
     
   ReadController2:
-    LDA #$01
-    STA $4016
-    LDA #$00
-    STA $4016
-    LDX #$08
+    lda #$01
+    sta $4016
+    lda #$00
+    sta $4016
+    ldx #$08
     .Loop:
-      LDA $4017
-      LSR A            ; bit0 -> Carry
-      ROL buttons2     ; bit0 <- Carry
-      DEX
-      BNE .Loop
-      RTS  
+      lda $4017
+      lsr A            ; bit0 -> Carry
+      rol buttons2     ; bit0 <- Carry
+      dex
+      bne .Loop
+      rts  
 
 ;---------------------------;
 ;     SUBROUTINES           ;
@@ -547,8 +611,8 @@ CheckIfGameIsOver:
 
   .GameIsOver:
 		; setup background
-		LDX #4
-  	STA current_background_index
+		ldx #4
+  	sta current_background_index
 
 	  jsr TurnOffScreenAndNMI
 	  jsr LoadBackground
@@ -567,22 +631,22 @@ VBlankWait:
   rts
 
 LoadPalettes:
-  LDA $2002             ; read PPU status to reset the high/low latch
-  LDA #$3F
-  STA $2006             ; write the high byte of $3F00 address
-  LDA #$00
-  STA $2006             ; write the low byte of $3F00 address
-  LDX #$00              ; start out at 0
+  lda $2002             ; read PPU status to reset the high/low latch
+  lda #$3F
+  sta $2006             ; write the high byte of $3F00 address
+  lda #$00
+  sta $2006             ; write the low byte of $3F00 address
+  ldx #$00              ; start out at 0
   .Loop:
-	  LDA palette, x        ; load data from address (palette + the value in x)
+    lda palette, x        ; load data from address (palette + the value in x)
 	                          ; 1st time through loop it will load palette+0
 	                          ; 2nd time through loop it will load palette+1
 	                          ; 3rd time through loop it will load palette+2
 	                          ; etc
-	  STA $2007             ; write to PPU
-	  INX                   ; X = X + 1
-	  CPX #$20              ; Compare X to hex $10, decimal 16 - copying 16 bytes = 4 sprites
-    BNE .Loop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
+	  sta $2007             ; write to PPU
+	  inx                   ; X = X + 1
+	  cpx #$20              ; Compare X to hex $10, decimal 16 - copying 16 bytes = 4 sprites
+    bne .Loop  ; Branch to LoadPalettesLoop if compare was Not Equal to zero
 	             ; if compare was equal to 32, keep going down
   rts
 
@@ -597,76 +661,76 @@ LoadSprites:
   rts
 
 LoadBackground:
-  STX current_background_index
+  stx current_background_index
 
-  LDA $2002             ; read PPU status to reset the high/low latch
-  LDA #$20
-  STA $2006             ; write the high byte of $2000 address
-  LDA #$00
-  STA $2006             ; write the low byte of $2000 address
+  lda $2002             ; read PPU status to reset the high/low latch
+  lda #$20
+  sta $2006             ; write the high byte of $2000 address
+  lda #$00
+  sta $2006             ; write the low byte of $2000 address
 
-  LDA backgrounds, X ;load A with the low byte of the room address
-  STA pointer_low  ;store A in the zero-page RAM
-  LDA backgrounds+1, X
-  STA pointer_high       ; put the high byte of the address into pointer
+  lda backgrounds, X ;load A with the low byte of the room address
+  sta pointer_low  ;store A in the zero-page RAM
+  lda backgrounds+1, X
+  sta pointer_high       ; put the high byte of the address into pointer
   
-  LDX #$00            ; start at pointer + 0
-  LDY #$00
+  ldx #$00            ; start at pointer + 0
+  ldy #$00
 
   .OutsideLoop:
     .InsideLoop:
-  		LDA [pointer_low], y  ; copy one background byte from address in pointer plus Y
-  		STA $2007           ; this runs 256 * 4 times
+  		lda [pointer_low], y  ; copy one background byte from address in pointer plus Y
+  		sta $2007           ; this runs 256 * 4 times
   		
-  		INY                 ; inside loop counter
-  		CPY #$00
-      BNE .InsideLoop      ; run the inside loop 256 times before continuing down
+  		iny                 ; inside loop counter
+  		cpy #$00
+      bne .InsideLoop      ; run the inside loop 256 times before continuing down
   		
-  		INC pointer_high       ; low byte went 0 to 256, so high byte needs to be changed now
+  		inc pointer_high       ; low byte went 0 to 256, so high byte needs to be changed now
   		
-  		INX
-  		CPX #$04
-      BNE .OutsideLoop     ; run the outside loop 256 times before continuing down
+  		inx
+  		cpx #$04
+      bne .OutsideLoop     ; run the outside loop 256 times before continuing down
 	rts
 
 IncrementScoreOne:
   .Inc1Ones:
-    LDA score1_ones      ; load the lowest digit of the number
-    CLC 
-    ADC #$01           ; add one
-    STA score1_ones
-    CMP #$0A           ; check if it overflowed, now equals 10
-    BNE .Done        ; if there was no overflow, all done
+    lda score1_ones      ; load the lowest digit of the number
+    clc 
+    adc #$01           ; add one
+    sta score1_ones
+    cmp #$0A           ; check if it overflowed, now equals 10
+    bne .Done        ; if there was no overflow, all done
   .Inc1Tens:
-    LDA #$00
-    STA score1_ones      ; wrap digit to 0
-    LDA score1_tens      ; load the next digit
-    CLC 
-    ADC #$01           ; add one, the carry from previous digit
-    STA score1_tens
-    CMP #$0A           ; check if it overflowed, now equals 10
-    BNE .Done        ; if there was no overflow, all done
+    lda #$00
+    sta score1_ones      ; wrap digit to 0
+    lda score1_tens      ; load the next digit
+    clc 
+    adc #$01           ; add one, the carry from previous digit
+    sta score1_tens
+    cmp #$0A           ; check if it overflowed, now equals 10
+    bne .Done        ; if there was no overflow, all done
   .Done:
 		jsr ScoreSound
 		rts
 
 IncrementScoreTwo:
   .Inc2Ones:
-    LDA score2_ones      ; load the lowest digit of the number
-    CLC 
-    ADC #$01           ; add one
-    STA score2_ones
-    CMP #$0A           ; check if it overflowed, now equals 10
-    BNE .Done        ; if there was no overflow, all done
+    lda score2_ones      ; load the lowest digit of the number
+    clc 
+    adc #$01           ; add one
+    sta score2_ones
+    cmp #$0A           ; check if it overflowed, now equals 10
+    bne .Done        ; if there was no overflow, all done
   .Inc2Tens:
-    LDA #$00
-    STA score2_ones      ; wrap digit to 0
-    LDA score2_tens      ; load the next digit
-    CLC 
-    ADC #$01           ; add one, the carry from previous digit
-    STA score2_tens
-    CMP #$0A           ; check if it overflowed, now equals 10
-    BNE .Done        ; if there was no overflow, all done
+    lda #$00
+    sta score2_ones      ; wrap digit to 0
+    lda score2_tens      ; load the next digit
+    clc 
+    adc #$01           ; add one, the carry from previous digit
+    sta score2_tens
+    cmp #$0A           ; check if it overflowed, now equals 10
+    bne .Done        ; if there was no overflow, all done
   .Done:
 		jsr ScoreSound
 		rts
@@ -692,21 +756,21 @@ TurnOnScreenAndNMI:
 
 InitPlayingState:
   ;;;Set some initial ball stats
-  LDA #$01
-  STA ball_down
-  STA ball_right
-  LDA #$00
-  STA ball_up
-  STA ball_left
+  lda #$01
+  sta ball_down
+  sta ball_right
+  lda #$00
+  sta ball_up
+  sta ball_left
 
-  LDA #$50
-  STA ball_y
-  LDA #$80
-  STA ball_x
+  lda #$50
+  sta ball_y
+  lda #$80
+  sta ball_x
   
-  LDA #$02
-  STA ball_speed_x
-  STA ball_speed_y
+  lda #$02
+  sta ball_speed_x
+  sta ball_speed_y
   
   ; set initial munchy location
 	lda #80
@@ -737,15 +801,15 @@ InitPlayingState:
   sta score2_low
 
 	; setup background
-	LDX #2
-  STA current_background_index
+	ldx #2
+  sta current_background_index
   
   jsr TurnOffScreenAndNMI
   jsr LoadBackground
   jsr TurnOnScreenAndNMI
   
-  LDA #STATE_PLAYING
-  STA game_state
+  lda #STATE_PLAYING
+  sta game_state
   rts
         
 ;;;;;;;;;;;;;;  
@@ -771,11 +835,11 @@ palette:
 
 sprites:
   ;vert tile attr horiz
-  .db 0, $75, $00, 0 ;ball
-  .db 0, $32, $00, 0 ;munchy top left
-  .db 0, $33, $00, 0 ;munchy top right
-  .db 0, $34, $00, 0 ;munchy bottom left
-  .db 0, $35, $00, 0 ;munchy bottom right
+  .db 0, BALL_STRT_SPRITE, %00000000, 0 ;ball
+  .db 0, MUNCHY_TL_STRT_SPRITE, %00000000, 0 ;munchy top left
+  .db 0, MUNCHY_TR_STRT_SPRITE, %00000000, 0 ;munchy top right
+  .db 0, MUNCHY_BL_STRT_SPRITE, %00000000, 0 ;munchy bottom left
+  .db 0, MUNCHY_BR_STRT_SPRITE, %00000000, 0 ;munchy bottom right
 
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
@@ -786,7 +850,6 @@ sprites:
   
   
 ;;;;;;;;;;;;;;  
-  
   
   .bank 2
   .org $0000
