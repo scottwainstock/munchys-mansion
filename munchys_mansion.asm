@@ -9,16 +9,16 @@
 ;; DECLARE SOME VARIABLES HERE
   .rsset $0000  ;;start variables at ram location 0
   
-gamestate  .rs 1  ; .rs 1 means reserve one byte of space
+game_state  .rs 1  ; .rs 1 means reserve one byte of space
 
-ballx      .rs 1  ; ball horizontal position
-bally      .rs 1  ; ball vertical position
-ballup     .rs 1  ; 1 = ball moving up
-balldown   .rs 1  ; 1 = ball moving down
-ballleft   .rs 1  ; 1 = ball moving left
-ballright  .rs 1  ; 1 = ball moving right
-ballspeedx .rs 1  ; ball horizontal speed per frame
-ballspeedy .rs 1  ; ball vertical speed per frame
+ball_x      .rs 1  ; ball horizontal position
+ball_y      .rs 1  ; ball vertical position
+ball_up     .rs 1  ; 1 = ball moving up
+ball_down   .rs 1  ; 1 = ball moving down
+ball_left   .rs 1  ; 1 = ball moving left
+ball_right  .rs 1  ; 1 = ball moving right
+ball_speed_x .rs 1  ; ball horizontal speed per frame
+ball_speed_y .rs 1  ; ball vertical speed per frame
 
 munchy_top_left_x     .rs 1
 munchy_top_right_x    .rs 1
@@ -32,28 +32,28 @@ munchy_bottom_right_y .rs 1
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
 
-score1High .rs 1  ; player 1 score, 0-15
-score1Low  .rs 1  ; player 1 score, 0-15
-score1Ones .rs 1  ; player 1 score, 0-15
-score1Tens .rs 1  ; player 1 score, 0-15
-score2High .rs 1  ; player 1 score, 0-15
-score2Low  .rs 1  ; player 1 score, 0-15
-score2Ones .rs 1  ; player 2 score, 0-15
-score2Tens .rs 1  ; player 2 score, 0-15
+score1_high .rs 1  ; player 1 score, 0-15
+score1_low  .rs 1  ; player 1 score, 0-15
+score1_ones .rs 1  ; player 1 score, 0-15
+score1_tens .rs 1  ; player 1 score, 0-15
+score2_high .rs 1  ; player 1 score, 0-15
+score2_low  .rs 1  ; player 1 score, 0-15
+score2_ones .rs 1  ; player 2 score, 0-15
+score2_tens .rs 1  ; player 2 score, 0-15
 
-pointerLo  .rs 1   ; pointer variables are declared in RAM
-pointerHi  .rs 1   ; low byte first, high byte immediately after
+pointer_low  .rs 1   ; pointer variables are declared in RAM
+pointer_high  .rs 1   ; low byte first, high byte immediately after
 current_background_index .rs 1
 
 ;; DECLARE SOME CONSTANTS HERE
-STATETITLE     = $00  ; displaying title screen
-STATEPLAYING   = $01  ; move paddles/ball, check for collisions
-STATEGAMEOVER  = $02  ; displaying game over screen
+STATE_TITLE     = $00  ; displaying title screen
+STATE_PLAYING   = $01  ; move paddles/ball, check for collisions
+STATE_GAME_OVER  = $02  ; displaying game over screen
   
-RIGHTWALL      = $F4  ; when ball reaches one of these, do something
-TOPWALL        = $20
-BOTTOMWALL     = $E0
-LEFTWALL       = $04
+RIGHT_WALL      = $F4  ; when ball reaches one of these, do something
+TOP_WALL        = $20
+BOTTON_WALL     = $E0
+LEFT_WALL       = $04
   
 A_PRESSED       = $80
 B_PRESSED       = $40
@@ -109,8 +109,8 @@ clrmem:
   jsr LoadSprites
    
 	;;:Set starting game state
-  LDA #STATETITLE
-  STA gamestate
+  LDA #STATE_TITLE
+  STA game_state
 	LDX #0
   STA current_background_index
 
@@ -149,16 +149,16 @@ NMI:
   JSR ReadController2  ;;get the current button data for player 2
   
   GameEngine:  
-    LDA gamestate
-    CMP #STATETITLE
+    LDA game_state
+    CMP #STATE_TITLE
     BEQ EngineTitle    ;;game is displaying title screen
       
-    LDA gamestate
-    CMP #STATEGAMEOVER
+    LDA game_state
+    CMP #STATE_GAME_OVER
     BEQ EngineGameOver  ;;game is displaying ending screen
     
-    LDA gamestate
-    CMP #STATEPLAYING
+    LDA game_state
+    CMP #STATE_PLAYING
     BEQ EnginePlaying   ;;game is playing
   
   GameEngineDone:  
@@ -197,7 +197,7 @@ NMI:
       BEQ .CheckP1UpDone
 
       lda munchy_top_left_y
-      cmp #TOPWALL
+      cmp #TOP_WALL
       beq .CheckP1UpDone
 
       LDA munchy_top_left_y
@@ -228,7 +228,7 @@ NMI:
       BEQ .CheckP1DownDone
 
       lda munchy_top_left_y
-      CMP #BOTTOMWALL
+      CMP #BOTTON_WALL
       beq .CheckP1DownDone
 
       LDA munchy_top_left_y
@@ -256,7 +256,7 @@ NMI:
       BEQ .CheckP1RightDone
 
       lda munchy_top_right_x
-      CMP #RIGHTWALL
+      CMP #RIGHT_WALL
       beq .CheckP1RightDone
 
       LDA munchy_top_left_x
@@ -284,7 +284,7 @@ NMI:
       BEQ .CheckP1LeftDone
 
       lda munchy_top_left_x
-      CMP #LEFTWALL
+      CMP #LEFT_WALL
       beq .CheckP1LeftDone
 
       LDA munchy_top_left_x
@@ -307,21 +307,21 @@ NMI:
         ;noop
 
     .MoveBallRight:
-      LDA ballright
-      BEQ .MoveBallRightDone   ;;if ballright=0, skip this section
+      LDA ball_right
+      BEQ .MoveBallRightDone   ;;if ball_right=0, skip this section
     
-      LDA ballx
+      LDA ball_x
       CLC
-      ADC ballspeedx        ;;ballx position = ballx + ballspeedx
-      STA ballx
+      ADC ball_speed_x        ;;ball_x position = ball_x + ball_speed_x
+      STA ball_x
     
-      LDA ballx
-      CMP #RIGHTWALL
+      LDA ball_x
+      CMP #RIGHT_WALL
       BCC .MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
       LDA #$00
-      STA ballright
+      STA ball_right
       LDA #$01
-      STA ballleft         ;;bounce, ball now moving left
+      STA ball_left         ;;bounce, ball now moving left
 
       ;;in real game, give point to player 1, reset ball
       jsr IncrementScoreOne
@@ -330,21 +330,21 @@ NMI:
       .MoveBallRightDone:
   
     .MoveBallLeft:
-      LDA ballleft
-      BEQ .MoveBallLeftDone   ;;if ballleft=0, skip this section
+      LDA ball_left
+      BEQ .MoveBallLeftDone   ;;if ball_left=0, skip this section
     
-      LDA ballx
+      LDA ball_x
       SEC
-      SBC ballspeedx        ;;ballx position = ballx - ballspeedx
-      STA ballx
+      SBC ball_speed_x        ;;ball_x position = ball_x - ball_speed_x
+      STA ball_x
     
-      LDA ballx
-      CMP #LEFTWALL
+      LDA ball_x
+      CMP #LEFT_WALL
       BCS .MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
       LDA #$01
-      STA ballright
+      STA ball_right
       LDA #$00
-      STA ballleft         ;;bounce, ball now moving right
+      STA ball_left         ;;bounce, ball now moving right
 
       ;;in real game, give point to player 2, reset ball
       jsr IncrementScoreTwo
@@ -353,40 +353,40 @@ NMI:
       .MoveBallLeftDone:
   
     .MoveBallUp:
-      LDA ballup
-      BEQ .MoveBallUpDone   ;;if ballup=0, skip this section
+      LDA ball_up
+      BEQ .MoveBallUpDone   ;;if ball_up=0, skip this section
     
-      LDA bally
+      LDA ball_y
       SEC
-      SBC ballspeedy        ;;bally position = bally - ballspeedy
-      STA bally
+      SBC ball_speed_y        ;;ball_y position = ball_y - ball_speed_y
+      STA ball_y
     
-      LDA bally
-      CMP #TOPWALL
+      LDA ball_y
+      CMP #TOP_WALL
       BCS .MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
       LDA #$01
-      STA balldown
+      STA ball_down
       LDA #$00
-      STA ballup         ;;bounce, ball now moving down
+      STA ball_up         ;;bounce, ball now moving down
 
       .MoveBallUpDone:
   
     .MoveBallDown:
-      LDA balldown
-      BEQ .MoveBallDownDone   ;;if ballup=0, skip this section
+      LDA ball_down
+      BEQ .MoveBallDownDone   ;;if ball_up=0, skip this section
     
-      LDA bally
+      LDA ball_y
       CLC
-      ADC ballspeedy        ;;bally position = bally + ballspeedy
-      STA bally
+      ADC ball_speed_y        ;;ball_y position = ball_y + ball_speed_y
+      STA ball_y
     
-      LDA bally
-      CMP #BOTTOMWALL
+      LDA ball_y
+      CMP #BOTTON_WALL
       BCC .MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
       LDA #$00
-      STA balldown
+      STA ball_down
       LDA #$01
-      STA ballup         ;;bounce, ball now moving down
+      STA ball_up         ;;bounce, ball now moving down
 
       .MoveBallDownDone:
   
@@ -402,9 +402,9 @@ NMI:
  
   UpdateSprites:
     ;update ball location
-    lda bally
+    lda ball_y
     sta BALL_ADDR
-    lda ballx
+    lda ball_x
     sta BALL_ADDR + 3
     
 		;update Munchy location
@@ -436,25 +436,25 @@ NMI:
  
   DrawScore:
     LDA $2002
-    LDA score1High
+    LDA score1_high
     STA $2006
-    LDA score1Low
+    LDA score1_low
     STA $2006
     
-    LDA score1Tens      ; next digit
+    LDA score1_tens      ; next digit
     STA $2007
-    LDA score1Ones      ; last digit
+    LDA score1_ones      ; last digit
     STA $2007
 
     LDA $2002
-    LDA score2High
+    LDA score2_high
     STA $2006
-    LDA score2Low
+    LDA score2_low
     STA $2006
 
-    LDA score2Tens      ; next digit
+    LDA score2_tens      ; next digit
     STA $2007
-    LDA score2Ones      ; last digit
+    LDA score2_ones      ; last digit
     STA $2007
 
     RTS
@@ -525,20 +525,20 @@ ScoreSound:
 	rts
 
 CheckIfGameIsOver:
-  lda score1Tens
+  lda score1_tens
 	cmp #$01
   bne .Check1OnesDone
 
-  lda score1Ones
+  lda score1_ones
 	cmp #$05
   beq .GameIsOver
   .Check1OnesDone:
 
-  lda score2Tens
+  lda score2_tens
 	cmp #$01
   bne .Check2OnesDone
 
-  lda score2Ones
+  lda score2_ones
 	cmp #$05
   beq .GameIsOver
   .Check2OnesDone:
@@ -554,8 +554,8 @@ CheckIfGameIsOver:
 	  jsr LoadBackground
 	  jsr TurnOnScreenAndNMI
 
-		lda #STATEGAMEOVER
-		sta gamestate
+		lda #STATE_GAME_OVER
+		sta game_state
 
     jmp .Done
   .Done:
@@ -606,23 +606,23 @@ LoadBackground:
   STA $2006             ; write the low byte of $2000 address
 
   LDA backgrounds, X ;load A with the low byte of the room address
-  STA pointerLo  ;store A in the zero-page RAM
+  STA pointer_low  ;store A in the zero-page RAM
   LDA backgrounds+1, X
-  STA pointerHi       ; put the high byte of the address into pointer
+  STA pointer_high       ; put the high byte of the address into pointer
   
   LDX #$00            ; start at pointer + 0
   LDY #$00
 
   .OutsideLoop:
     .InsideLoop:
-  		LDA [pointerLo], y  ; copy one background byte from address in pointer plus Y
+  		LDA [pointer_low], y  ; copy one background byte from address in pointer plus Y
   		STA $2007           ; this runs 256 * 4 times
   		
   		INY                 ; inside loop counter
   		CPY #$00
       BNE .InsideLoop      ; run the inside loop 256 times before continuing down
   		
-  		INC pointerHi       ; low byte went 0 to 256, so high byte needs to be changed now
+  		INC pointer_high       ; low byte went 0 to 256, so high byte needs to be changed now
   		
   		INX
   		CPX #$04
@@ -631,19 +631,19 @@ LoadBackground:
 
 IncrementScoreOne:
   .Inc1Ones:
-    LDA score1Ones      ; load the lowest digit of the number
+    LDA score1_ones      ; load the lowest digit of the number
     CLC 
     ADC #$01           ; add one
-    STA score1Ones
+    STA score1_ones
     CMP #$0A           ; check if it overflowed, now equals 10
     BNE .Done        ; if there was no overflow, all done
   .Inc1Tens:
     LDA #$00
-    STA score1Ones      ; wrap digit to 0
-    LDA score1Tens      ; load the next digit
+    STA score1_ones      ; wrap digit to 0
+    LDA score1_tens      ; load the next digit
     CLC 
     ADC #$01           ; add one, the carry from previous digit
-    STA score1Tens
+    STA score1_tens
     CMP #$0A           ; check if it overflowed, now equals 10
     BNE .Done        ; if there was no overflow, all done
   .Done:
@@ -652,19 +652,19 @@ IncrementScoreOne:
 
 IncrementScoreTwo:
   .Inc2Ones:
-    LDA score2Ones      ; load the lowest digit of the number
+    LDA score2_ones      ; load the lowest digit of the number
     CLC 
     ADC #$01           ; add one
-    STA score2Ones
+    STA score2_ones
     CMP #$0A           ; check if it overflowed, now equals 10
     BNE .Done        ; if there was no overflow, all done
   .Inc2Tens:
     LDA #$00
-    STA score2Ones      ; wrap digit to 0
-    LDA score2Tens      ; load the next digit
+    STA score2_ones      ; wrap digit to 0
+    LDA score2_tens      ; load the next digit
     CLC 
     ADC #$01           ; add one, the carry from previous digit
-    STA score2Tens
+    STA score2_tens
     CMP #$0A           ; check if it overflowed, now equals 10
     BNE .Done        ; if there was no overflow, all done
   .Done:
@@ -693,20 +693,20 @@ TurnOnScreenAndNMI:
 InitPlayingState:
   ;;;Set some initial ball stats
   LDA #$01
-  STA balldown
-  STA ballright
+  STA ball_down
+  STA ball_right
   LDA #$00
-  STA ballup
-  STA ballleft
+  STA ball_up
+  STA ball_left
 
   LDA #$50
-  STA bally
+  STA ball_y
   LDA #$80
-  STA ballx
+  STA ball_x
   
   LDA #$02
-  STA ballspeedx
-  STA ballspeedy
+  STA ball_speed_x
+  STA ball_speed_y
   
   ; set initial munchy location
 	lda #80
@@ -723,18 +723,18 @@ InitPlayingState:
 
   ; setup scores
   lda #0
-  sta score1Ones
-  sta score1Tens
-  sta score2Ones
-  sta score2Tens
+  sta score1_ones
+  sta score1_tens
+  sta score2_ones
+  sta score2_tens
   
   lda #$20
-  sta score1High
-  sta score2High
+  sta score1_high
+  sta score2_high
   lda #$4C
-  sta score1Low
+  sta score1_low
   lda #$51
-  sta score2Low
+  sta score2_low
 
 	; setup background
 	LDX #2
@@ -744,8 +744,8 @@ InitPlayingState:
   jsr LoadBackground
   jsr TurnOnScreenAndNMI
   
-  LDA #STATEPLAYING
-  STA gamestate
+  LDA #STATE_PLAYING
+  STA game_state
   rts
         
 ;;;;;;;;;;;;;;  
