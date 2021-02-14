@@ -28,6 +28,7 @@ munchy_top_left_y     .rs 1
 munchy_top_right_y    .rs 1
 munchy_bottom_left_y  .rs 1
 munchy_bottom_right_y .rs 1
+munchy_animation_frame_num .rs 1
 
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
@@ -43,7 +44,10 @@ score2_tens .rs 1  ; player 2 score, 0-15
 
 pointer_low  .rs 1   ; pointer variables are declared in RAM
 pointer_high  .rs 1   ; low byte first, high byte immediately after
+
 current_background_index .rs 1
+
+frame_counter .rs 1
 
 ;; DECLARE SOME CONSTANTS HERE
 STATE_TITLE     = $00  ; displaying title screen
@@ -168,30 +172,34 @@ NMI:
   
   GameEngineDone:  
     jsr UpdateSprites
-    rti
+
+	ldx frame_counter
+  inx
+  stx frame_counter
+  rti
  
 ;;;;;;;;
  
   EngineTitle:
     .CheckStart:
-		  LDA buttons1 ; player 1 - A
-		  AND #START_PRESSED ; erase everything but bit 0
-      BEQ .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+		  lda buttons1 ; player 1 - A
+		  and #START_PRESSED ; erase everything but bit 0
+      beq .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
       jsr InitPlayingState
 
     .CheckStartDone:
-      JMP GameEngineDone
+      jmp GameEngineDone
 
 ;;;;;;;;; 
  
   EngineGameOver:
-		LDA buttons1 ; player 1 - A
-		AND #START_PRESSED ; erase everything but bit 0
-    BEQ .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+		lda buttons1 ; player 1 - A
+		and #START_PRESSED ; erase everything but bit 0
+    beq .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
     jsr InitPlayingState
 
     .CheckStartDone:
-      JMP GameEngineDone
+      jmp GameEngineDone
  
 ;;;;;;;;;;;
  
@@ -316,21 +324,21 @@ NMI:
         ;noop
 
     .MoveBallRight:
-      LDA ball_right
-      BEQ .MoveBallRightDone   ;;if ball_right=0, skip this section
+      lda ball_right
+      beq .MoveBallRightDone   ;;if ball_right=0, skip this section
     
-      LDA ball_x
-      CLC
-      ADC ball_speed_x        ;;ball_x position = ball_x + ball_speed_x
-      STA ball_x
+      lda ball_x
+      clc
+      adc ball_speed_x        ;;ball_x position = ball_x + ball_speed_x
+      sta ball_x
     
-      LDA ball_x
-      CMP #RIGHT_WALL
-      BCC .MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
-      LDA #$00
-      STA ball_right
-      LDA #$01
-      STA ball_left         ;;bounce, ball now moving left
+      lda ball_x
+      cmp #RIGHT_WALL
+      bcc .MoveBallRightDone      ;;if ball x < right wall, still on screen, skip next section
+      lda #$00
+      sta ball_right
+      lda #$01
+      sta ball_left         ;;bounce, ball now moving left
 
       ;;in real game, give point to player 1, reset ball
       jsr IncrementScoreOne
@@ -339,63 +347,63 @@ NMI:
       .MoveBallRightDone:
   
     .MoveBallLeft:
-      LDA ball_left
-      BEQ .MoveBallLeftDone   ;;if ball_left=0, skip this section
+      lda ball_left
+      beq .MoveBallLeftDone   ;;if ball_left=0, skip this section
     
-      LDA ball_x
-      SEC
-      SBC ball_speed_x        ;;ball_x position = ball_x - ball_speed_x
-      STA ball_x
+      lda ball_x
+      sec
+      sbc ball_speed_x        ;;ball_x position = ball_x - ball_speed_x
+      sta ball_x
     
-      LDA ball_x
-      CMP #LEFT_WALL
-      BCS .MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
-      LDA #$01
-      STA ball_right
-      LDA #$00
-      STA ball_left         ;;bounce, ball now moving right
+      lda ball_x
+      cmp #LEFT_WALL
+      bcs .MoveBallLeftDone      ;;if ball x > left wall, still on screen, skip next section
+      lda #$01
+      sta ball_right
+      lda #$00
+      sta ball_left         ;;bounce, ball now moving right
 
       ;;in real game, give point to player 2, reset ball
-      jsr IncrementScoreTwo
+;      jsr IncrementScoreTwo
 			jsr CheckIfGameIsOver
 
       .MoveBallLeftDone:
   
     .MoveBallUp:
-      LDA ball_up
-      BEQ .MoveBallUpDone   ;;if ball_up=0, skip this section
+      lda ball_up
+      beq .MoveBallUpDone   ;;if ball_up=0, skip this section
     
-      LDA ball_y
-      SEC
-      SBC ball_speed_y        ;;ball_y position = ball_y - ball_speed_y
-      STA ball_y
+      lda ball_y
+      sec
+      sbc ball_speed_y        ;;ball_y position = ball_y - ball_speed_y
+      sta ball_y
     
-      LDA ball_y
-      CMP #TOP_WALL
-      BCS .MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
-      LDA #$01
-      STA ball_down
-      LDA #$00
-      STA ball_up         ;;bounce, ball now moving down
+      lda ball_y
+      cmp #TOP_WALL
+      bcs .MoveBallUpDone      ;;if ball y > top wall, still on screen, skip next section
+      lda #$01
+      sta ball_down
+      lda #$00
+      sta ball_up         ;;bounce, ball now moving down
 
       .MoveBallUpDone:
   
     .MoveBallDown:
-      LDA ball_down
-      BEQ .MoveBallDownDone   ;;if ball_up=0, skip this section
+      lda ball_down
+      beq .MoveBallDownDone   ;;if ball_up=0, skip this section
     
-      LDA ball_y
-      CLC
-      ADC ball_speed_y        ;;ball_y position = ball_y + ball_speed_y
-      STA ball_y
+      lda ball_y
+      clc
+      adc ball_speed_y        ;;ball_y position = ball_y + ball_speed_y
+      sta ball_y
     
-      LDA ball_y
-      CMP #BOTTON_WALL
-      BCC .MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
-      LDA #$00
-      STA ball_down
-      LDA #$01
-      STA ball_up         ;;bounce, ball now moving down
+      lda ball_y
+      cmp #BOTTON_WALL
+      bcc .MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
+      lda #$00
+      sta ball_down
+      lda #$01
+      sta ball_up         ;;bounce, ball now moving down
 
       .MoveBallDownDone:
   
@@ -405,17 +413,18 @@ NMI:
       ;;    if ball y < paddle y bottom
       ;;      bounce, ball now moving left
 
-      JMP GameEngineDone
+      jmp GameEngineDone
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
   AnimateMunchyRight:
     ; check if munchy is facing right
     lda MUNCHY_TL_ADDR + 1
     cmp #MUNCHY_TL_STRT_SPRITE
-    beq .Done
+    beq .Animate
 
     jsr FlipMunchy
 
+    ; Swap tiles to be right facing
     lda #MUNCHY_TL_STRT_SPRITE
     sta MUNCHY_TL_ADDR + 1
     lda #MUNCHY_TR_STRT_SPRITE
@@ -425,9 +434,11 @@ NMI:
     lda #MUNCHY_BR_STRT_SPRITE
     sta MUNCHY_BR_ADDR + 1
 
-    ; walking animation here
-
-    .Done:
+    .Animate:
+;      lda MUNCHY_BL_STRT_SPRITE + 1
+;      sta MUNCHY_BL_ADDR + 1
+;      lda MUNCHY_BR_STRT_SPRITE + 1
+;      sta MUNCHY_BR_ADDR + 1
 
     rts
 
@@ -435,10 +446,11 @@ NMI:
     ; check if munchy is facing left
     lda MUNCHY_TL_ADDR + 1
     cmp #MUNCHY_TL_STRT_SPRITE
-    bne .Done
+    bne .Animate
 
     jsr FlipMunchy
 
+    ; Swap tiles to be left facing
     lda #MUNCHY_TR_STRT_SPRITE
     sta MUNCHY_TL_ADDR + 1
     lda #MUNCHY_TL_STRT_SPRITE
@@ -448,10 +460,40 @@ NMI:
     lda #MUNCHY_BL_STRT_SPRITE
     sta MUNCHY_BR_ADDR + 1
 
-    ; walking animation here
-
-    .Done:
-
+    .Animate:
+;      lda munchy_animation_frame_num
+;      cmp #$03
+;      bne .ShowNextFrame
+;
+;      ; reset animation count
+;      lda #$0
+;      sta munchy_animation_frame_num
+;
+;      .ShowNextFrame:
+;        ; update leg frames
+;        ldx frame_counter
+;			  cmp 170
+;        bcs .FrameThree
+;
+;        ldx frame_counter
+;			  cmp 85
+;        bcs .FrameTwo
+;
+;        lda #MUNCHY_BL_STRT_SPRITE
+;        clc 
+;        adc munchy_animation_frame_num
+;        sta MUNCHY_BL_ADDR + 1
+;
+;        lda #MUNCHY_BR_STRT_SPRITE
+;        clc 
+;        adc munchy_animation_frame_num
+;        sta MUNCHY_BR_ADDR + 1
+;  
+;        .Done:
+;	        ; increment frame count
+;	        inx
+;	        txa
+;	        sta munchy_animation_frame_num
     rts
 
   FlipMunchy:
@@ -784,6 +826,9 @@ InitPlayingState:
 	sta munchy_bottom_left_y
 	sta munchy_bottom_right_x
 	sta munchy_bottom_right_y
+
+  lda #$00
+  sta munchy_animation_frame_num
 
   ; setup scores
   lda #0
