@@ -47,12 +47,16 @@ pointer_high  .rs 1   ; low byte first, high byte immediately after
 
 current_background_index .rs 1
 
-frame_counter .rs 1
+;; CONSTANTS
+STATE_TITLE     = $0
+STATE_PLAYING   = $1
+STATE_GAME_OVER  = $2
+STATE_BESTIARY  = $3
 
-;; DECLARE SOME CONSTANTS HERE
-STATE_TITLE     = $00  ; displaying title screen
-STATE_PLAYING   = $01  ; move paddles/ball, check for collisions
-STATE_GAME_OVER  = $02  ; displaying game over screen
+TITLE_BACKGROUND_IDX = $0
+PLAYING_BACKGROUND_IDX = $2
+GAME_OVER_BACKGROUND_IDX = $4
+BESTIARY_BACKGROUND_IDX = $6
   
 RIGHT_WALL      = $F4  ; when ball reaches one of these, do something
 TOP_WALL        = $20
@@ -120,7 +124,7 @@ clrmem:
 	;;:Set starting game state
   lda #STATE_TITLE
   sta game_state
-	ldx #0
+  ldx #TITLE_BACKGROUND_IDX
   sta current_background_index
 
   jsr LoadBackground
@@ -141,9 +145,7 @@ NMI:
   lda #$02
   sta $4014       ; set the high byte (02) of the RAM address, start the transfer
 
-  jsr DrawScore
-
-  ;;This is the PPU clean up section, so rendering the next frame starts properly.
+  ;; This is the PPU clean up section, so rendering the next frame starts properly.
   lda #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   sta $2000
   lda #%00011110   ; enable sprites, enable background, no clipping on left side
@@ -151,12 +153,12 @@ NMI:
   lda #$00        ;;tell the ppu there is no background scrolling
   sta $2005
   sta $2005
-    
-  ;;;all graphics updates done by here, run game engine
 
   jsr ReadController1  ;;get the current button data for player 1
   jsr ReadController2  ;;get the current button data for player 2
   
+  ;; all graphics updates done by here, run game engine
+
   GameEngine:  
     lda game_state
     cmp #STATE_TITLE
@@ -169,41 +171,65 @@ NMI:
     lda game_state
     cmp #STATE_PLAYING
     beq EnginePlaying
-  
-  GameEngineDone:  
-    jsr UpdateSprites
 
-	ldx frame_counter
-  inx
-  stx frame_counter
-  rti
- 
-;;;;;;;;
- 
+    lda game_state
+    cmp #STATE_BESTIARY
+    beq EngineBestiary
+  
   EngineTitle:
     .CheckStart:
-		  lda buttons1 ; player 1 - A
-		  and #START_PRESSED ; erase everything but bit 0
-      beq .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+		  lda buttons1
+		  and #START_PRESSED
+      beq .CheckStartDone
+
       jsr InitPlayingState
 
     .CheckStartDone:
       jmp GameEngineDone
 
-;;;;;;;;; 
- 
+  EngineBestiary:
+    .CheckStart:
+		  lda buttons1
+		  and #SEL_PRESSED
+      beq .CheckStartDone
+
+			; setup background
+  		ldx #PLAYING_BACKGROUND_IDX
+  		sta current_background_index
+  		jsr LoadBackground
+  		
+  		lda #STATE_PLAYING
+  		sta game_state
+
+			jsr UnhideSprites
+
+    .CheckStartDone:
+      jmp GameEngineDone
+
   EngineGameOver:
-		lda buttons1 ; player 1 - A
-		and #START_PRESSED ; erase everything but bit 0
-    beq .CheckStartDone   ; branch to ReadADone if button is NOT pressed (0)
+		lda buttons1
+		and #START_PRESSED
+    beq .CheckStartDone
+
     jsr InitPlayingState
 
     .CheckStartDone:
       jmp GameEngineDone
  
-;;;;;;;;;;;
- 
   EnginePlaying:
+ 		jsr UpdateSprites
+;	 	jsr DrawScore
+
+    .CheckStart:
+		  lda buttons1
+		  and #SEL_PRESSED
+      beq .CheckStartDone
+      jsr InitBestiaryState
+      jmp .Done
+
+      .CheckStartDone:
+        ;noop
+
     .CheckP1Up:
 		  lda buttons1
 		  and #UP_PRESSED
@@ -413,185 +439,11 @@ NMI:
       ;;    if ball y < paddle y bottom
       ;;      bounce, ball now moving left
 
-      jmp GameEngineDone
+    .Done:
+    	jmp GameEngineDone
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  AnimateMunchyRight:
-    ; check if munchy is facing right
-    lda MUNCHY_TL_ADDR + 1
-    cmp #MUNCHY_TL_STRT_SPRITE
-    beq .Animate
-
-    jsr FlipMunchy
-
-    ; Swap tiles to be right facing
-    lda #MUNCHY_TL_STRT_SPRITE
-    sta MUNCHY_TL_ADDR + 1
-    lda #MUNCHY_TR_STRT_SPRITE
-    sta MUNCHY_TR_ADDR + 1
-    lda #MUNCHY_BL_STRT_SPRITE
-    sta MUNCHY_BL_ADDR + 1
-    lda #MUNCHY_BR_STRT_SPRITE
-    sta MUNCHY_BR_ADDR + 1
-
-    .Animate:
-;      lda MUNCHY_BL_STRT_SPRITE + 1
-;      sta MUNCHY_BL_ADDR + 1
-;      lda MUNCHY_BR_STRT_SPRITE + 1
-;      sta MUNCHY_BR_ADDR + 1
-
-    rts
-
-  AnimateMunchyLeft:
-    ; check if munchy is facing left
-    lda MUNCHY_TL_ADDR + 1
-    cmp #MUNCHY_TL_STRT_SPRITE
-    bne .Animate
-
-    jsr FlipMunchy
-
-    ; Swap tiles to be left facing
-    lda #MUNCHY_TR_STRT_SPRITE
-    sta MUNCHY_TL_ADDR + 1
-    lda #MUNCHY_TL_STRT_SPRITE
-    sta MUNCHY_TR_ADDR + 1
-    lda #MUNCHY_BR_STRT_SPRITE
-    sta MUNCHY_BL_ADDR + 1
-    lda #MUNCHY_BL_STRT_SPRITE
-    sta MUNCHY_BR_ADDR + 1
-
-    .Animate:
-;      lda munchy_animation_frame_num
-;      cmp #$03
-;      bne .ShowNextFrame
-;
-;      ; reset animation count
-;      lda #$0
-;      sta munchy_animation_frame_num
-;
-;      .ShowNextFrame:
-;        ; update leg frames
-;        ldx frame_counter
-;			  cmp 170
-;        bcs .FrameThree
-;
-;        ldx frame_counter
-;			  cmp 85
-;        bcs .FrameTwo
-;
-;        lda #MUNCHY_BL_STRT_SPRITE
-;        clc 
-;        adc munchy_animation_frame_num
-;        sta MUNCHY_BL_ADDR + 1
-;
-;        lda #MUNCHY_BR_STRT_SPRITE
-;        clc 
-;        adc munchy_animation_frame_num
-;        sta MUNCHY_BR_ADDR + 1
-;  
-;        .Done:
-;	        ; increment frame count
-;	        inx
-;	        txa
-;	        sta munchy_animation_frame_num
-    rts
-
-  FlipMunchy:
-    lda MUNCHY_TL_ADDR + 2
-    eor #%01000000
-    sta MUNCHY_TL_ADDR + 2
-    sta MUNCHY_TR_ADDR + 2
-    sta MUNCHY_BL_ADDR + 2
-    sta MUNCHY_BR_ADDR + 2
-
-    rts
- 
-  UpdateSprites:
-    ;update ball location
-    lda ball_y
-    sta BALL_ADDR
-    lda ball_x
-    sta BALL_ADDR + 3
-    
-		;update Munchy location
-		; top left
-    lda munchy_top_left_y
-    sta MUNCHY_TL_ADDR
-    lda munchy_top_left_x
-    sta MUNCHY_TL_ADDR + 3
-
-		; top right
-    lda munchy_top_right_y
-    sta MUNCHY_TR_ADDR
-    lda munchy_top_right_x
-    sta MUNCHY_TR_ADDR + 3
-
-		; bottom left
-    lda munchy_bottom_left_y
-    sta MUNCHY_BL_ADDR
-    lda munchy_bottom_left_x
-    sta MUNCHY_BL_ADDR + 3
-
-		; bottom right
-    lda munchy_bottom_right_y
-    sta MUNCHY_BR_ADDR
-    lda munchy_bottom_right_x
-    sta MUNCHY_BR_ADDR + 3
-
-    rts
- 
-  DrawScore:
-    lda $2002
-    lda score1_high
-    sta $2006
-    lda score1_low
-    sta $2006
-    
-    lda score1_tens      ; next digit
-    sta $2007
-    lda score1_ones      ; last digit
-    sta $2007
-
-    lda $2002
-    lda score2_high
-    sta $2006
-    lda score2_low
-    sta $2006
-
-    lda score2_tens      ; next digit
-    sta $2007
-    lda score2_ones      ; last digit
-    sta $2007
-
-    rts
-   
-  ReadController1:
-    lda #$01
-    sta $4016
-    lda #$00
-    sta $4016
-    ldx #$08
-    .Loop:
-      lda $4016
-      lsr A            ; bit0 -> Carry
-      rol buttons1     ; bit0 <- Carry
-      dex
-      bne .Loop
-      rts
-    
-  ReadController2:
-    lda #$01
-    sta $4016
-    lda #$00
-    sta $4016
-    ldx #$08
-    .Loop:
-      lda $4017
-      lsr A            ; bit0 -> Carry
-      rol buttons2     ; bit0 <- Carry
-      dex
-      bne .Loop
-      rts  
+  GameEngineDone:  
+    rti
 
 ;---------------------------;
 ;     SUBROUTINES           ;
@@ -653,12 +505,9 @@ CheckIfGameIsOver:
 
   .GameIsOver:
 		; setup background
-		ldx #4
+		ldx #GAME_OVER_BACKGROUND_IDX
   	sta current_background_index
-
-	  jsr TurnOffScreenAndNMI
 	  jsr LoadBackground
-	  jsr TurnOnScreenAndNMI
 
 		lda #STATE_GAME_OVER
 		sta game_state
@@ -703,6 +552,8 @@ LoadSprites:
   rts
 
 LoadBackground:
+	jsr TurnOffScreenAndNMI
+
   stx current_background_index
 
   lda $2002             ; read PPU status to reset the high/low latch
@@ -733,6 +584,9 @@ LoadBackground:
   		inx
   		cpx #$04
       bne .OutsideLoop     ; run the outside loop 256 times before continuing down
+
+	jsr TurnOnScreenAndNMI
+
 	rts
 
 IncrementScoreOne:
@@ -796,6 +650,42 @@ TurnOnScreenAndNMI:
 
 	rts
 
+InitBestiaryState:
+  ldx #BESTIARY_BACKGROUND_IDX
+  sta current_background_index
+  jsr LoadBackground
+
+	jsr HideSprites
+  
+  lda #STATE_BESTIARY
+  sta game_state
+
+  rts
+
+UnhideSprites:
+	lda ball_y
+	sta BALL_ADDR
+	lda munchy_top_left_y
+	lda MUNCHY_TL_ADDR
+	lda munchy_top_right_y
+	lda MUNCHY_TR_ADDR
+	lda munchy_bottom_left_y
+	lda MUNCHY_BL_ADDR
+	lda munchy_bottom_right_y
+	lda MUNCHY_BR_ADDR
+
+	rts
+
+HideSprites:
+	lda $FF
+	sta BALL_ADDR
+	sta MUNCHY_TL_ADDR
+	sta MUNCHY_TR_ADDR
+	sta MUNCHY_BL_ADDR
+	sta MUNCHY_BR_ADDR
+
+	rts
+
 InitPlayingState:
   ;;;Set some initial ball stats
   lda #$01
@@ -846,17 +736,192 @@ InitPlayingState:
   sta score2_low
 
 	; setup background
-	ldx #2
+  ldx #PLAYING_BACKGROUND_IDX
   sta current_background_index
-  
-  jsr TurnOffScreenAndNMI
   jsr LoadBackground
-  jsr TurnOnScreenAndNMI
   
   lda #STATE_PLAYING
   sta game_state
+
   rts
-        
+
+AnimateMunchyRight:
+  ; check if munchy is facing right
+  lda MUNCHY_TL_ADDR + 1
+  cmp #MUNCHY_TL_STRT_SPRITE
+  beq .Animate
+
+  jsr FlipMunchy
+
+  ; Swap tiles to be right facing
+  lda #MUNCHY_TL_STRT_SPRITE
+  sta MUNCHY_TL_ADDR + 1
+  lda #MUNCHY_TR_STRT_SPRITE
+  sta MUNCHY_TR_ADDR + 1
+  lda #MUNCHY_BL_STRT_SPRITE
+  sta MUNCHY_BL_ADDR + 1
+  lda #MUNCHY_BR_STRT_SPRITE
+  sta MUNCHY_BR_ADDR + 1
+
+  .Animate:
+     ;lda MUNCHY_BL_STRT_SPRITE + 1
+     ;sta MUNCHY_BL_ADDR + 1
+     ;lda MUNCHY_BR_STRT_SPRITE + 1
+     ;sta MUNCHY_BR_ADDR + 1
+
+  rts
+
+AnimateMunchyLeft:
+  ; check if munchy is facing left
+  lda MUNCHY_TL_ADDR + 1
+  cmp #MUNCHY_TL_STRT_SPRITE
+  bne .Animate
+
+  jsr FlipMunchy
+
+  ; Swap tiles to be left facing
+  lda #MUNCHY_TR_STRT_SPRITE
+  sta MUNCHY_TL_ADDR + 1
+  lda #MUNCHY_TL_STRT_SPRITE
+  sta MUNCHY_TR_ADDR + 1
+  lda #MUNCHY_BR_STRT_SPRITE
+  sta MUNCHY_BL_ADDR + 1
+  lda #MUNCHY_BL_STRT_SPRITE
+  sta MUNCHY_BR_ADDR + 1
+
+  .Animate:
+     ;lda munchy_animation_frame_num
+     ;cmp #$03
+     ;bne .ShowNextFrame
+
+     ;; reset animation count
+     ;lda #$0
+     ;sta munchy_animation_frame_num
+
+     ;.ShowNextFrame:
+     ;  ; update leg frames
+     ;  ldx frame_counter
+		 ; cmp 170
+     ;  bcs .FrameThree
+
+     ;  ldx frame_counter
+		 ; cmp 85
+     ;  bcs .FrameTwo
+
+     ;  lda #MUNCHY_BL_STRT_SPRITE
+     ;  clc 
+     ;  adc munchy_animation_frame_num
+     ;  sta MUNCHY_BL_ADDR + 1
+
+     ;  lda #MUNCHY_BR_STRT_SPRITE
+     ;  clc 
+     ;  adc munchy_animation_frame_num
+     ;  sta MUNCHY_BR_ADDR + 1
+ 
+     ;  .Done:
+     ;   ; increment frame count
+     ;   inx
+     ;   txa
+     ;   sta munchy_animation_frame_num
+  rts
+
+FlipMunchy:
+  lda MUNCHY_TL_ADDR + 2
+  eor #%01000000
+  sta MUNCHY_TL_ADDR + 2
+  sta MUNCHY_TR_ADDR + 2
+  sta MUNCHY_BL_ADDR + 2
+  sta MUNCHY_BR_ADDR + 2
+
+  rts
+
+UpdateSprites:
+  ;update ball location
+  lda ball_y
+  sta BALL_ADDR
+  lda ball_x
+  sta BALL_ADDR + 3
+  
+	;;; update Munchy location
+	; top left
+  lda munchy_top_left_y
+  sta MUNCHY_TL_ADDR
+  lda munchy_top_left_x
+  sta MUNCHY_TL_ADDR + 3
+
+	; top right
+  lda munchy_top_right_y
+  sta MUNCHY_TR_ADDR
+  lda munchy_top_right_x
+  sta MUNCHY_TR_ADDR + 3
+
+	; bottom left
+  lda munchy_bottom_left_y
+  sta MUNCHY_BL_ADDR
+  lda munchy_bottom_left_x
+  sta MUNCHY_BL_ADDR + 3
+
+	; bottom right
+  lda munchy_bottom_right_y
+  sta MUNCHY_BR_ADDR
+  lda munchy_bottom_right_x
+  sta MUNCHY_BR_ADDR + 3
+
+  rts
+
+DrawScore:
+  lda $2002
+  lda score1_high
+  sta $2006
+  lda score1_low
+  sta $2006
+  
+  lda score1_tens      ; next digit
+  sta $2007
+  lda score1_ones      ; last digit
+  sta $2007
+
+  lda $2002
+  lda score2_high
+  sta $2006
+  lda score2_low
+  sta $2006
+
+  lda score2_tens      ; next digit
+  sta $2007
+  lda score2_ones      ; last digit
+  sta $2007
+
+  rts
+ 
+ReadController1:
+  lda #$01
+  sta $4016
+  lda #$00
+  sta $4016
+  ldx #$08
+  .Loop:
+    lda $4016
+    lsr A            ; bit0 -> Carry
+    rol buttons1     ; bit0 <- Carry
+    dex
+    bne .Loop
+    rts
+  
+ReadController2:
+  lda #$01
+  sta $4016
+  lda #$00
+  sta $4016
+  ldx #$08
+  .Loop:
+    lda $4017
+    lsr A            ; bit0 -> Carry
+    rol buttons2     ; bit0 <- Carry
+    dex
+    bne .Loop
+    rts  
+
 ;;;;;;;;;;;;;;  
   
   .bank 1
@@ -871,8 +936,11 @@ playing_background:
 gameover_background:
   .include "gameover_background.asm"
 
+bestiary_background:
+  .include "bestiary_background.asm"
+
 backgrounds:
-  .word title_background, playing_background, gameover_background
+  .word title_background, playing_background, gameover_background, bestiary_background
 
 palette:
   .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
