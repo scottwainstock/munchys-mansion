@@ -70,7 +70,7 @@ BESTIARY_BACKGROUND_IDX  = $6
   
 RIGHT_WALL      = $F4  ; when ball reaches one of these, do something
 TOP_WALL        = $20
-BOTTON_WALL     = $E0
+BOTTOM_WALL     = $E0
 LEFT_WALL       = $04
   
 A_PRESSED       = $80
@@ -285,7 +285,7 @@ NMI:
       sta last_buttons1
 
       lda munchy_top_left_y
-      cmp #BOTTON_WALL
+      cmp #BOTTOM_WALL
       beq .CheckP1DownDone
 
       lda munchy_top_left_y
@@ -382,20 +382,48 @@ NMI:
       cmp #$1
       beq .CheckP1BDone
 
-      ; figure out whether to fire left or right
+      ;; figure out which direction to fire
+      ; left or right? default to right if neither
       lda last_buttons1
 		  and #LEFT_PRESSED
-      beq .SetProjectileRight
-      lda #$1
-      sta projectile_left
-      jmp .FireProjectile
+      bne .SetProjectileLeft
+      lda last_buttons1
+		  and #RIGHT_PRESSED
+      bne .SetProjectileRight
+
+      jmp .LeftOrRightDone
+
+      .SetProjectileLeft:
+        lda #$1
+        sta projectile_left
+        jmp .LeftOrRightDone
       .SetProjectileRight:
         lda #$1
         sta projectile_right
+        jmp .LeftOrRightDone
+      .LeftOrRightDone:
+
+      ; up or down?
+      lda last_buttons1
+		  and #UP_PRESSED
+      bne .SetProjectileUp
+      lda last_buttons1
+		  and #DOWN_PRESSED
+      bne .SetProjectileDown
+
+      jmp .FireProjectile
+
+      .SetProjectileUp:
+        lda #$1
+        sta projectile_up
+        jmp .FireProjectile
+      .SetProjectileDown:
+        lda #$1
+        sta projectile_down
         jmp .FireProjectile
 
+      ; time to fire
       .FireProjectile:
-        ; projectile out
         lda #$1
         sta projectile_thrown
         
@@ -408,6 +436,40 @@ NMI:
 
       .CheckP1BDone:
         ;noop
+
+    .MoveProjectileUp:
+      lda projectile_up
+      beq .MoveProjectileUpDone
+
+      lda projectile_y
+      sec
+      sbc projectile_speed
+      sta projectile_y
+    
+      lda projectile_y
+      cmp #TOP_WALL
+      bcs .MoveProjectileUpDone
+      
+      jsr ResetProjectile
+
+      .MoveProjectileUpDone:
+
+    .MoveProjectileDown:
+      lda projectile_down
+      beq .MoveProjectileDownDone
+
+      lda projectile_y
+      clc
+      adc projectile_speed
+      sta projectile_y
+    
+      lda projectile_y
+      cmp #BOTTOM_WALL
+      bcc .MoveProjectileDownDone
+
+      jsr ResetProjectile
+
+      .MoveProjectileDownDone:
 
     .MoveProjectileRight:
       lda projectile_right
@@ -516,7 +578,7 @@ NMI:
       sta ball_y
     
       lda ball_y
-      cmp #BOTTON_WALL
+      cmp #BOTTOM_WALL
       bcc .MoveBallDownDone      ;;if ball y < bottom wall, still on screen, skip next section
       lda #$00
       sta ball_down
