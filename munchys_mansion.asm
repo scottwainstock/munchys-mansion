@@ -30,6 +30,7 @@ munchy_bottom_left_y  .rs 1
 munchy_bottom_right_y .rs 1
 munchy_animation_frame_num .rs 1
 
+
 projectile_thrown .rs 1
 projectile_x      .rs 1
 projectile_y      .rs 1
@@ -39,8 +40,8 @@ projectile_left   .rs 1
 projectile_right  .rs 1
 projectile_speed  .rs 1
 
-buttons1 .rs 1  ; player 1 gamepad buttons, one bit per button
-buttons2 .rs 1  ; player 2 gamepad buttons, one bit per button
+buttons1      .rs 1
+last_buttons1 .rs 1
 
 score1_high .rs 1  ; player 1 score, 0-15
 score1_low  .rs 1  ; player 1 score, 0-15
@@ -167,7 +168,6 @@ NMI:
   sta $2005
 
   jsr ReadController1  ;;get the current button data for player 1
-  jsr ReadController2  ;;get the current button data for player 2
   
   ;; all graphics updates done by here, run game engine
 
@@ -247,6 +247,9 @@ NMI:
 		  and #UP_PRESSED
       beq .CheckP1UpDone
 
+		  lda buttons1
+      sta last_buttons1
+
       lda munchy_top_left_y
       cmp #TOP_WALL
       beq .CheckP1UpDone
@@ -278,6 +281,9 @@ NMI:
 		  and #DOWN_PRESSED
       beq .CheckP1DownDone
 
+		  lda buttons1
+      sta last_buttons1
+
       lda munchy_top_left_y
       cmp #BOTTON_WALL
       beq .CheckP1DownDone
@@ -305,6 +311,9 @@ NMI:
 		  lda buttons1
 		  and #RIGHT_PRESSED
       beq .CheckP1RightDone
+
+		  lda buttons1
+      sta last_buttons1
 
       jsr AnimateMunchyRight
 
@@ -335,6 +344,9 @@ NMI:
 		  lda buttons1
 		  and #LEFT_PRESSED
       beq .CheckP1LeftDone
+
+		  lda buttons1
+      sta last_buttons1
 
       jsr AnimateMunchyLeft
 
@@ -371,7 +383,7 @@ NMI:
       beq .CheckP1BDone
 
       ; figure out whether to fire left or right
-		  lda buttons1
+      lda last_buttons1
 		  and #LEFT_PRESSED
       beq .SetProjectileRight
       lda #$1
@@ -994,20 +1006,6 @@ ReadController1:
     bne .Loop
     rts
   
-ReadController2:
-  lda #$01
-  sta $4016
-  lda #$00
-  sta $4016
-  ldx #$08
-  .Loop:
-    lda $4017
-    lsr A            ; bit0 -> Carry
-    rol buttons2     ; bit0 <- Carry
-    dex
-    bne .Loop
-    rts  
-
 ;;;;;;;;;;;;;;  
   
   .bank 1
