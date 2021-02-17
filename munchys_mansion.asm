@@ -9,14 +9,14 @@
 ;; DECLARE SOME VARIABLES HERE
   .rsset $0000  ;;start variables at ram location 0
   
-game_state  .rs 1  ; .rs 1 means reserve one byte of space
+game_state .rs 1  ; .rs 1 means reserve one byte of space
 
-ball_x      .rs 1  ; ball horizontal position
-ball_y      .rs 1  ; ball vertical position
-ball_up     .rs 1  ; 1 = ball moving up
-ball_down   .rs 1  ; 1 = ball moving down
-ball_left   .rs 1  ; 1 = ball moving left
-ball_right  .rs 1  ; 1 = ball moving right
+ball_x       .rs 1  ; ball horizontal position
+ball_y       .rs 1  ; ball vertical position
+ball_up      .rs 1  ; 1 = ball moving up
+ball_down    .rs 1  ; 1 = ball moving down
+ball_left    .rs 1  ; 1 = ball moving left
+ball_right   .rs 1  ; 1 = ball moving right
 ball_speed_x .rs 1  ; ball horizontal speed per frame
 ball_speed_y .rs 1  ; ball vertical speed per frame
 
@@ -31,12 +31,16 @@ munchy_bottom_right_y .rs 1
 munchy_animation_frame_num .rs 1
 
 projectile_thrown .rs 1
-projectile_x .rs 1
-projectile_y .rs 1
-projectile_speed_x .rs 1
+projectile_x      .rs 1
+projectile_y      .rs 1
+projectile_up     .rs 1
+projectile_down   .rs 1
+projectile_left   .rs 1
+projectile_right  .rs 1
+projectile_speed  .rs 1
 
-buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
-buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
+buttons1 .rs 1  ; player 1 gamepad buttons, one bit per button
+buttons2 .rs 1  ; player 2 gamepad buttons, one bit per button
 
 score1_high .rs 1  ; player 1 score, 0-15
 score1_low  .rs 1  ; player 1 score, 0-15
@@ -48,7 +52,7 @@ score2_ones .rs 1  ; player 2 score, 0-15
 score2_tens .rs 1  ; player 2 score, 0-15
 
 pointer_low  .rs 1   ; pointer variables are declared in RAM
-pointer_high  .rs 1   ; low byte first, high byte immediately after
+pointer_high .rs 1   ; low byte first, high byte immediately after
 
 current_background_index .rs 1
 
@@ -366,35 +370,66 @@ NMI:
       cmp #$1
       beq .CheckP1BDone
 
-      ; projectile out
+      ; figure out whether to fire left or right
+		  lda buttons1
+		  and #LEFT_PRESSED
+      beq .SetProjectileRight
       lda #$1
-      sta projectile_thrown
-      
-      lda munchy_top_right_x
-      sta projectile_x
+      sta projectile_left
+      jmp .FireProjectile
+      .SetProjectileRight:
+        lda #$1
+        sta projectile_right
+        jmp .FireProjectile
 
-      lda munchy_top_right_y
-      sta projectile_y
+      .FireProjectile:
+        ; projectile out
+        lda #$1
+        sta projectile_thrown
+        
+        lda munchy_top_right_x
+        sta projectile_x
+        lda munchy_top_right_y
+        sta projectile_y
+  
+        jsr ProjectileSound
 
       .CheckP1BDone:
         ;noop
 
     .MoveProjectileRight:
+      lda projectile_right
+      beq .MoveProjectileRightDone
+
       lda projectile_x
       clc
-      adc projectile_speed_x
+      adc projectile_speed
       sta projectile_x
     
       lda projectile_x
       cmp #RIGHT_WALL
-      bcc .MoveProjectileRightDone      ;;if ball x < right wall, still on screen, skip next section
-
-      lda #$0
-      sta projectile_thrown
-      sta projectile_x
-      sta projectile_y
+      bcc .MoveProjectileRightDone
+      
+      jsr ResetProjectile
 
       .MoveProjectileRightDone:
+
+    .MoveProjectileLeft:
+      lda projectile_left
+      beq .MoveProjectileLeftDone
+
+      lda projectile_x
+      sec
+      sbc projectile_speed
+      sta projectile_x
+    
+      lda projectile_x
+      cmp #LEFT_WALL
+      bcs .MoveProjectileLeftDone
+      
+      jsr ResetProjectile
+
+      .MoveProjectileLeftDone:
   
     .MoveBallRight:
       lda ball_right
@@ -493,14 +528,14 @@ NMI:
 ;---------------------------;
 ;     SUBROUTINES           ;
 ;---------------------------;
-BounceSound:
+ProjectileSound:
   lda #%00000001
   sta $4015 ;enable square 1
 
   lda #%10111111 ;Duty 10, Volume F
   sta $4000
 
-  lda #$D9    ;0C9 is a C# in NTSC mode
+  lda #$E9
   sta $4002
   lda #$00
   sta $4003
@@ -766,7 +801,7 @@ InitPlayingState:
   sta projectile_y
 
   lda #3
-  sta projectile_speed_x
+  sta projectile_speed
 
 	; setup background
   ldx #PLAYING_BACKGROUND_IDX
@@ -865,6 +900,18 @@ FlipMunchy:
   sta MUNCHY_TR_ADDR + 2
   sta MUNCHY_BL_ADDR + 2
   sta MUNCHY_BR_ADDR + 2
+
+  rts
+
+ResetProjectile:
+  lda #$0
+  sta projectile_thrown
+  sta projectile_x
+  sta projectile_y
+  sta projectile_left
+  sta projectile_right
+  sta projectile_up
+  sta projectile_down
 
   rts
 
