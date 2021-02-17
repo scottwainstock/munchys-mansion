@@ -73,16 +73,16 @@ LEFT_PRESSED    = $02
 RIGHT_PRESSED   = $01
 
 BALL_ADDR = $0200
-BALL_STRT_SPRITE = $75
+BALL_STRT_SPRITE = $00
 
 MUNCHY_TL_ADDR = $0204
 MUNCHY_TL_STRT_SPRITE = $32
 MUNCHY_TR_ADDR = $0208
 MUNCHY_TR_STRT_SPRITE = $33
 MUNCHY_BL_ADDR = $020C
-MUNCHY_BL_STRT_SPRITE = $34
+MUNCHY_BL_STRT_SPRITE = $42
 MUNCHY_BR_ADDR = $0210
-MUNCHY_BR_STRT_SPRITE = $35
+MUNCHY_BR_STRT_SPRITE = $43
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -700,7 +700,7 @@ InitPlayingState:
   lda #$80
   sta ball_x
   
-  lda #$02
+  lda #$01
   sta ball_speed_x
   sta ball_speed_y
   
@@ -966,4 +966,4 @@ sprites:
   
   .bank 2
   .org $0000
-  .incbin "mario.chr"   ;includes 8KB graphics file from SMB1
+  .incbin "munchys_mansion.chr"   ;includes 8KB graphics file from SMB1
