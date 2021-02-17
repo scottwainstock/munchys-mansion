@@ -30,6 +30,11 @@ munchy_bottom_left_y  .rs 1
 munchy_bottom_right_y .rs 1
 munchy_animation_frame_num .rs 1
 
+projectile_thrown .rs 1
+projectile_x .rs 1
+projectile_y .rs 1
+projectile_speed_x .rs 1
+
 buttons1   .rs 1  ; player 1 gamepad buttons, one bit per button
 buttons2   .rs 1  ; player 2 gamepad buttons, one bit per button
 
@@ -50,13 +55,13 @@ current_background_index .rs 1
 ;; CONSTANTS
 STATE_TITLE     = $0
 STATE_PLAYING   = $1
-STATE_GAME_OVER  = $2
+STATE_GAME_OVER = $2
 STATE_BESTIARY  = $3
 
-TITLE_BACKGROUND_IDX = $0
-PLAYING_BACKGROUND_IDX = $2
+TITLE_BACKGROUND_IDX     = $0
+PLAYING_BACKGROUND_IDX   = $2
 GAME_OVER_BACKGROUND_IDX = $4
-BESTIARY_BACKGROUND_IDX = $6
+BESTIARY_BACKGROUND_IDX  = $6
   
 RIGHT_WALL      = $F4  ; when ball reaches one of these, do something
 TOP_WALL        = $20
@@ -73,7 +78,7 @@ LEFT_PRESSED    = $02
 RIGHT_PRESSED   = $01
 
 BALL_ADDR = $0200
-BALL_STRT_SPRITE = $00
+BALL_STRT_SPRITE = $75
 
 MUNCHY_TL_ADDR = $0204
 MUNCHY_TL_STRT_SPRITE = $32
@@ -83,6 +88,9 @@ MUNCHY_BL_ADDR = $020C
 MUNCHY_BL_STRT_SPRITE = $42
 MUNCHY_BR_ADDR = $0210
 MUNCHY_BR_STRT_SPRITE = $43
+
+PROJECTILE_ADDR = $0214
+PROJECTILE_STRT_SPRITE = $00
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -220,14 +228,14 @@ NMI:
  		jsr UpdateSprites
 ;	 	jsr DrawScore
 
-    .CheckStart:
+    .CheckSelect:
 		  lda buttons1
 		  and #SEL_PRESSED
-      beq .CheckStartDone
-      jsr InitBestiaryState
-      jmp .Done
+      beq .CheckSelectDone
 
-      .CheckStartDone:
+      jsr InitBestiaryState
+
+      .CheckSelectDone:
         ;noop
 
     .CheckP1Up:
@@ -349,6 +357,45 @@ NMI:
       .CheckP1LeftDone:
         ;noop
 
+    .CheckP1B:
+		  lda buttons1
+		  and #B_PRESSED
+      beq .CheckP1BDone
+      
+      lda projectile_thrown
+      cmp #$1
+      beq .CheckP1BDone
+
+      ; projectile out
+      lda #$1
+      sta projectile_thrown
+      
+      lda munchy_top_right_x
+      sta projectile_x
+
+      lda munchy_top_right_y
+      sta projectile_y
+
+      .CheckP1BDone:
+        ;noop
+
+    .MoveProjectileRight:
+      lda projectile_x
+      clc
+      adc projectile_speed_x
+      sta projectile_x
+    
+      lda projectile_x
+      cmp #RIGHT_WALL
+      bcc .MoveProjectileRightDone      ;;if ball x < right wall, still on screen, skip next section
+
+      lda #$0
+      sta projectile_thrown
+      sta projectile_x
+      sta projectile_y
+
+      .MoveProjectileRightDone:
+  
     .MoveBallRight:
       lda ball_right
       beq .MoveBallRightDone   ;;if ball_right=0, skip this section
@@ -389,8 +436,6 @@ NMI:
       lda #$00
       sta ball_left         ;;bounce, ball now moving right
 
-      ;;in real game, give point to player 2, reset ball
-;      jsr IncrementScoreTwo
 			jsr CheckIfGameIsOver
 
       .MoveBallLeftDone:
@@ -547,7 +592,7 @@ LoadSprites:
 	  lda sprites, x      ; load data from address (sprites +  x)
 	  sta $0200, x ; store into RAM address ($0200 + x)
 	  inx
-	  cpx #$14
+	  cpx #$18
 	  bne LoadSpritesLoop
   rts
 
@@ -604,27 +649,6 @@ IncrementScoreOne:
     clc 
     adc #$01           ; add one, the carry from previous digit
     sta score1_tens
-    cmp #$0A           ; check if it overflowed, now equals 10
-    bne .Done        ; if there was no overflow, all done
-  .Done:
-		jsr ScoreSound
-		rts
-
-IncrementScoreTwo:
-  .Inc2Ones:
-    lda score2_ones      ; load the lowest digit of the number
-    clc 
-    adc #$01           ; add one
-    sta score2_ones
-    cmp #$0A           ; check if it overflowed, now equals 10
-    bne .Done        ; if there was no overflow, all done
-  .Inc2Tens:
-    lda #$00
-    sta score2_ones      ; wrap digit to 0
-    lda score2_tens      ; load the next digit
-    clc 
-    adc #$01           ; add one, the carry from previous digit
-    sta score2_tens
     cmp #$0A           ; check if it overflowed, now equals 10
     bne .Done        ; if there was no overflow, all done
   .Done:
@@ -735,6 +759,15 @@ InitPlayingState:
   lda #$51
   sta score2_low
 
+  ; projectile state
+  lda #0
+  sta projectile_thrown
+  sta projectile_x
+  sta projectile_y
+
+  lda #3
+  sta projectile_speed_x
+
 	; setup background
   ldx #PLAYING_BACKGROUND_IDX
   sta current_background_index
@@ -836,7 +869,13 @@ FlipMunchy:
   rts
 
 UpdateSprites:
-  ;update ball location
+  ; update projectile location
+  lda projectile_y
+  sta PROJECTILE_ADDR
+  lda projectile_x
+  sta PROJECTILE_ADDR + 3
+
+  ; update ball location
   lda ball_y
   sta BALL_ADDR
   lda ball_x
@@ -953,6 +992,7 @@ sprites:
   .db 0, MUNCHY_TR_STRT_SPRITE, %00000000, 0 ;munchy top right
   .db 0, MUNCHY_BL_STRT_SPRITE, %00000000, 0 ;munchy bottom left
   .db 0, MUNCHY_BR_STRT_SPRITE, %00000000, 0 ;munchy bottom right
+  .db 0, PROJECTILE_STRT_SPRITE, %00000000, 0 ;projectile
 
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
