@@ -30,7 +30,6 @@ munchy_bottom_left_y  .rs 1
 munchy_bottom_right_y .rs 1
 munchy_animation_frame_num .rs 1
 
-
 projectile_thrown .rs 1
 projectile_x      .rs 1
 projectile_y      .rs 1
@@ -47,10 +46,6 @@ score1_high .rs 1  ; player 1 score, 0-15
 score1_low  .rs 1  ; player 1 score, 0-15
 score1_ones .rs 1  ; player 1 score, 0-15
 score1_tens .rs 1  ; player 1 score, 0-15
-score2_high .rs 1  ; player 1 score, 0-15
-score2_low  .rs 1  ; player 1 score, 0-15
-score2_ones .rs 1  ; player 2 score, 0-15
-score2_tens .rs 1  ; player 2 score, 0-15
 
 pointer_low  .rs 1   ; pointer variables are declared in RAM
 pointer_high .rs 1   ; low byte first, high byte immediately after
@@ -158,6 +153,8 @@ NMI:
   lda #$02
   sta $4014       ; set the high byte (02) of the RAM address, start the transfer
 
+  jsr DrawScore
+
   ;; This is the PPU clean up section, so rendering the next frame starts properly.
   lda #%10010000   ; enable NMI, sprites from Pattern Table 0, background from Pattern Table 1
   sta $2000
@@ -230,7 +227,6 @@ NMI:
  
   EnginePlaying:
  		jsr UpdateSprites
-;	 	jsr DrawScore
 
     .CheckSelect:
 		  lda buttons1
@@ -646,15 +642,6 @@ CheckIfGameIsOver:
   beq .GameIsOver
   .Check1OnesDone:
 
-  lda score2_tens
-	cmp #$01
-  bne .Check2OnesDone
-
-  lda score2_ones
-	cmp #$05
-  beq .GameIsOver
-  .Check2OnesDone:
-
   jmp .Done
 
   .GameIsOver:
@@ -667,6 +654,7 @@ CheckIfGameIsOver:
 		sta game_state
 
     jmp .Done
+
   .Done:
 	  rts
 
@@ -857,16 +845,11 @@ InitPlayingState:
   lda #0
   sta score1_ones
   sta score1_tens
-  sta score2_ones
-  sta score2_tens
   
   lda #$20
   sta score1_high
-  sta score2_high
   lda #$4C
   sta score1_low
-  lda #$51
-  sta score2_low
 
   ; projectile state
   lda #0
@@ -1039,17 +1022,6 @@ DrawScore:
   lda score1_tens      ; next digit
   sta $2007
   lda score1_ones      ; last digit
-  sta $2007
-
-  lda $2002
-  lda score2_high
-  sta $2006
-  lda score2_low
-  sta $2006
-
-  lda score2_tens      ; next digit
-  sta $2007
-  lda score2_ones      ; last digit
   sta $2007
 
   rts
