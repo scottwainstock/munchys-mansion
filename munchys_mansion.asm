@@ -38,6 +38,7 @@ projectile_down   .rs 1
 projectile_left   .rs 1
 projectile_right  .rs 1
 projectile_speed  .rs 1
+projectile_animation_idx .rs 1
 
 buttons1      .rs 1
 last_buttons1 .rs 1
@@ -51,6 +52,8 @@ pointer_low  .rs 1   ; pointer variables are declared in RAM
 pointer_high .rs 1   ; low byte first, high byte immediately after
 
 current_background_index .rs 1
+
+frame_count .rs 1
 
 ;; CONSTANTS
 STATE_TITLE     = $0
@@ -91,6 +94,7 @@ MUNCHY_BR_STRT_SPRITE = $43
 
 PROJECTILE_ADDR = $0214
 PROJECTILE_STRT_SPRITE = $00
+NUM_PROJECTILE_ANIMATIONS = $5
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -152,6 +156,10 @@ NMI:
   sta $2003       ; set the low byte (00) of the RAM address
   lda #$02
   sta $4014       ; set the high byte (02) of the RAM address, start the transfer
+
+  ldx frame_count
+  inx
+  stx frame_count
 
   jsr DrawScore
 
@@ -420,8 +428,15 @@ NMI:
 
       ; time to fire
       .FireProjectile:
+				; reset sprint
+				lda PROJECTILE_STRT_SPRITE
+				sta PROJECTILE_ADDR + 1
+
         lda #$1
         sta projectile_thrown
+
+        lda #0
+        sta projectile_animation_idx
         
         lda munchy_top_right_x
         sta projectile_x
@@ -500,6 +515,49 @@ NMI:
       jsr ResetProjectile
 
       .MoveProjectileLeftDone:
+
+		.AnimateProjectile:
+			lda projectile_thrown
+			cmp #1
+			bne .AnimateProjectileDone
+
+			; do it every 50th frame
+			ldx frame_count
+			cpx #0
+			beq .AnimateProjectileChangeTile
+			cpx #50
+			beq .AnimateProjectileChangeTile
+			cpx #100
+			beq .AnimateProjectileChangeTile
+			cpx #150
+			beq .AnimateProjectileChangeTile
+			cpx #200
+			beq .AnimateProjectileChangeTile
+			cpx #250
+			beq .AnimateProjectileChangeTile
+
+			jmp .AnimateProjectileIncTile
+
+			.AnimateProjectileChangeTile:
+				; grab from the animation index
+				ldx projectile_animation_idx
+				lda projectile_tiles, X
+				sta PROJECTILE_ADDR + 1
+
+				ldx projectile_animation_idx
+				inx
+				stx projectile_animation_idx
+
+			.AnimateProjectileIncTile:
+				; reset animation index as necessary
+				ldx projectile_animation_idx
+				cpx #NUM_PROJECTILE_ANIMATIONS
+				bne .AnimateProjectileDone
+
+				ldx #0
+ 			  stx projectile_animation_idx
+
+			.AnimateProjectileDone:
   
     .MoveBallRight:
       lda ball_right
@@ -632,6 +690,23 @@ ScoreSound:
 
 	rts
 
+DebugSound:
+  lda #%00000001
+  sta $4015 ;enable square 1
+
+  lda #%10111111 ;Duty 10, Volume F
+  sta $4000
+
+  lda #$A9    ;0C9 is a C# in NTSC mode
+  sta $4002
+  lda #$00
+  sta $4003
+
+  lda #0
+  sta $4000
+
+	rts
+
 CheckIfGameIsOver:
   lda score1_tens
 	cmp #$01
@@ -689,7 +764,7 @@ LoadSprites:
 	  lda sprites, x      ; load data from address (sprites +  x)
 	  sta $0200, x ; store into RAM address ($0200 + x)
 	  inx
-	  cpx #$18
+	  cpx #$28
 	  bne LoadSpritesLoop
   rts
 
@@ -857,7 +932,7 @@ InitPlayingState:
   sta projectile_x
   sta projectile_y
 
-  lda #3
+  lda #1
   sta projectile_speed
 
 	; setup background
@@ -1064,6 +1139,9 @@ palette:
   .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
   .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
+projectile_tiles:
+	.db PROJECTILE_STRT_SPRITE, PROJECTILE_STRT_SPRITE + 1, PROJECTILE_STRT_SPRITE + 2, PROJECTILE_STRT_SPRITE + 3, PROJECTILE_STRT_SPRITE + 4
+
 sprites:
   ;vert tile attr horiz
   .db 0, BALL_STRT_SPRITE, %00000000, 0 ;ball
@@ -1072,6 +1150,10 @@ sprites:
   .db 0, MUNCHY_BL_STRT_SPRITE, %00000000, 0 ;munchy bottom left
   .db 0, MUNCHY_BR_STRT_SPRITE, %00000000, 0 ;munchy bottom right
   .db 0, PROJECTILE_STRT_SPRITE, %00000000, 0 ;projectile
+  .db 0, PROJECTILE_STRT_SPRITE + 1, %00000000, 0 ;projectile
+  .db 0, PROJECTILE_STRT_SPRITE + 2, %00000000, 0 ;projectile
+  .db 0, PROJECTILE_STRT_SPRITE + 3, %00000000, 0 ;projectile
+  .db 0, PROJECTILE_STRT_SPRITE + 4, %00000000, 0 ;projectile
 
   .org $FFFA     ;first of the three vectors starts here
   .dw NMI        ;when an NMI happens (once per frame if enabled) the 
@@ -1079,7 +1161,6 @@ sprites:
   .dw RESET      ;when the processor first turns on or is reset, it will jump
                    ;to the label RESET:
   .dw 0          ;external interrupt IRQ is not used in this tutorial
-  
   
 ;;;;;;;;;;;;;;  
   
