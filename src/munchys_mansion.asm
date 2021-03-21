@@ -1121,16 +1121,16 @@ ReadController1:
   .org $E000
 
 title_background:
-  .include "title_background.asm"
+  .include "backgrounds/title_background.asm"
 
 playing_background:
-  .include "playing_background.asm"
+  .include "backgrounds/playing_background.asm"
 
 gameover_background:
-  .include "gameover_background.asm"
+  .include "backgrounds/gameover_background.asm"
 
 bestiary_background:
-  .include "bestiary_background.asm"
+  .include "backgrounds/bestiary_background.asm"
 
 backgrounds:
   .word title_background, playing_background, gameover_background, bestiary_background
@@ -1166,4 +1166,4 @@ sprites:
   
   .bank 2
   .org $0000
-  .incbin "munchys_mansion.chr"   ;includes 8KB graphics file from SMB1
+  .incbin "../graphics/munchys_mansion.chr"   ;includes 8KB graphics file from SMB1
